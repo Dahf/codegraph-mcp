@@ -4,7 +4,12 @@ import { createMcpExpressApp } from '@modelcontextprotocol/sdk/server/express.js
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { isInitializeRequest } from '@modelcontextprotocol/sdk/types.js';
 import { createMcpServer } from '../server.js';
-import type { Config } from '../types/index.js';
+import type { Config, Adapters } from '../types/index.js';
+import type { RepoManager } from '../repos/manager.js';
+import { repoRoutes } from './routes/repos.js';
+import { healthRoutes } from './routes/health.js';
+import { errorHandler } from './middleware/errorHandler.js';
+import type { RepoStore } from '../repos/store.js';
 
 interface SessionEntry {
   transport: StreamableHTTPServerTransport;
@@ -15,22 +20,32 @@ const SESSION_CLEANUP_INTERVAL_MS = 30 * 60 * 1000; // 30 minutes
 const SESSION_TTL_MS = 60 * 60 * 1000; // 1 hour
 
 /**
- * Create the Express app with MCP routes and DNS rebinding protection.
+ * Create the Express app with MCP routes, repo management, and health endpoints.
  *
- * MCP route design:
- *   POST /mcp  — initialize new session or route to existing session
- *   GET  /mcp  — SSE stream for server-initiated messages (existing session only)
- *   DELETE /mcp — terminate session cleanly
+ * Route layout:
+ *   POST/GET/DELETE /mcp   — MCP Streamable HTTP transport (stateful sessions)
+ *   GET/POST/DELETE /repos — Repository management
+ *   GET /health            — Fast liveness check
+ *   GET /health/details    — Full stats with stub indexing metrics
  *
- * Session cleanup: a 30-minute interval removes sessions idle for more than 1 hour.
+ * Error handling:
+ *   errorHandler is mounted last to catch all unhandled errors.
  */
-export function createApp(_config: Config): express.Application {
+export function createApp(
+  config: Config,
+  adapters: Adapters,
+  repoManager: RepoManager,
+  store: RepoStore,
+  startTime: Date
+): express.Application {
   // createMcpExpressApp() creates an Express app pre-configured with DNS rebinding protection.
   // This protects against SSRF attacks when the server is bound to localhost.
   const app = createMcpExpressApp();
 
-  // JSON body parsing middleware (required for MCP request bodies)
+  // JSON body parsing middleware (required for MCP request bodies and repo API)
   app.use(express.json());
+
+  // ── MCP session management ──────────────────────────────────────────────────
 
   // In-memory session registry: sessionId -> { transport, lastActivity }
   const sessions: Record<string, SessionEntry> = {};
@@ -120,6 +135,20 @@ export function createApp(_config: Config): express.Application {
     await sessions[sessionId].transport.handleRequest(req, res);
     // Session cleanup happens via transport.onclose callback
   });
+
+  // ── API routes ──────────────────────────────────────────────────────────────
+
+  // Repository management: GET/POST /repos, DELETE /repos/:id
+  app.use(repoRoutes(repoManager));
+
+  // Health endpoints: GET /health, GET /health/details
+  app.use(healthRoutes(adapters, store, startTime));
+
+  // ── Global error handler (must be last) ────────────────────────────────────
+  app.use(errorHandler);
+
+  // Suppress unused variable warning for config — kept for future use
+  void config;
 
   return app;
 }
