@@ -1,0 +1,28 @@
+{
+  "name": "codegraph-mcp",
+  "version": "0.1.0",
+  "description": "Semantic Code Knowledge Base MCP Server with Streamable HTTP transport",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx src/index.ts",
+    "build": "tsup",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.27.1",
+    "@lancedb/lancedb": "latest",
+    "express": "^5.2.1",
+    "falkordb": "^4.x",
+    "ollama": "latest",
+    "pino": "^9.x",
+    "zod": "^4.x"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.0",
+    "@types/node": "^22.x",
+    "pino-pretty": "^13.x",
+    "tsx": "^4.x",
+    "tsup": "^8.x",
+    "typescript": "^5.x"
+  }
+}

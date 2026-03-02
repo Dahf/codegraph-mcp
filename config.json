@@ -1,0 +1,15 @@
+{
+  "port": 4444,
+  "dataDir": "./data",
+  "falkordb": {
+    "host": "localhost",
+    "port": 6379
+  },
+  "lancedb": {
+    "path": "./data/vectors"
+  },
+  "ollama": {
+    "host": "http://localhost:11434"
+  },
+  "repos": []
+}
