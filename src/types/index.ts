@@ -2,6 +2,25 @@
 export type { Config, RepoConfig } from '../config/schema.js';
 
 /**
+ * Common interface implemented by all external service adapters.
+ */
+export interface Adapter {
+  connect(): Promise<void>;
+  healthCheck(): Promise<{ ok: boolean; message: string }>;
+  close(): Promise<void>;
+}
+
+/**
+ * All external adapters used by the server, grouped for easy passing and shutdown.
+ * Each adapter implements the Adapter interface.
+ */
+export interface Adapters {
+  falkordb: Adapter;
+  lancedb: Adapter;
+  ollama: Adapter;
+}
+
+/**
  * Runtime state of the server, including startup time and adapter health.
  */
 export interface ServerState {
@@ -11,10 +30,6 @@ export interface ServerState {
   /** Timestamp when the server was started */
   startTime: Date;
 
-  /** Health status of each external adapter */
-  adapters: {
-    falkordb: 'ok' | 'error' | 'unknown';
-    lancedb: 'ok' | 'error' | 'unknown';
-    ollama: 'ok' | 'error' | 'unknown';
-  };
+  /** Connected adapters for all external dependencies */
+  adapters: Adapters;
 }
