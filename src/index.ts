@@ -4,6 +4,9 @@ import { createServer, type Server } from 'node:http';
 import pino from 'pino';
 import { loadConfig } from './config/loader.js';
 import { createApp } from './http/app.js';
+import { FalkorDBAdapter } from './adapters/falkordb.js';
+import { LanceDBAdapter } from './adapters/lancedb.js';
+import { OllamaAdapter } from './adapters/ollama.js';
 
 // Configure Pino logger
 // pino-pretty is used only in development for human-readable output
@@ -33,8 +36,21 @@ for (const dir of dataDirs) {
 }
 logger.info({ dataDir }, 'Data directories initialized');
 
-// Placeholder for startup dependency validation (implemented in Plan 01-02)
-logger.warn('Dependency validation will be added in next plan (FalkorDB, LanceDB, Ollama checks)');
+// Startup dependency validation — fail fast if any dependency is unreachable
+const falkordb = new FalkorDBAdapter(config.falkordb);
+const lancedb = new LanceDBAdapter(config.lancedb);
+const ollama = new OllamaAdapter(config.ollama);
+
+try {
+  await falkordb.connect();
+  await lancedb.connect();
+  await ollama.connect();
+} catch (err) {
+  logger.error({ err }, 'Startup validation failed');
+  process.exit(1);
+}
+
+logger.info('All dependencies validated. Starting server...');
 
 // Build the Express app with MCP routes
 const app = createApp(config);
@@ -56,14 +72,18 @@ function gracefulShutdown(signal: string): void {
 
   logger.info({ signal }, 'Shutting down...');
 
-  httpServer.close((err) => {
+  httpServer.close(async (err) => {
     if (err) {
       logger.error({ err }, 'Error closing HTTP server');
       process.exit(1);
     }
 
-    // Future: close FalkorDB and LanceDB connections (placeholder for Plan 01-02)
-    logger.info('HTTP server closed. Exiting.');
+    // Close all adapter connections cleanly
+    await falkordb.close();
+    await lancedb.close();
+    await ollama.close();
+
+    logger.info('All connections closed. Exiting.');
     process.exit(0);
   });
 
