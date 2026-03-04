@@ -89,6 +89,12 @@ export interface ExtractedSymbols {
   classes: ClassNode[];
   types: TypeNode[];
   imports: ImportNode[];
+  /**
+   * Raw call sites found in this file — callee names from call_expression nodes.
+   * Populated by the pipeline's tree-walk pass; empty array when not extracted.
+   * Two-pass resolution in pipeline.ts converts these to typed CallEdge objects.
+   */
+  callSites: Array<{ calleeName: string; callerFilePath: string }>;
 }
 
 /** A directed call edge between two functions */

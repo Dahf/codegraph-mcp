@@ -340,5 +340,5 @@ export function extractCpp(
     console.warn(`[cpp] ${filePath}: skipped ${skippedDueToError} nodes due to parse errors`);
   }
 
-  return { functions, classes, types: [], imports };
+  return { functions, classes, types: [], imports, callSites: [] };
 }

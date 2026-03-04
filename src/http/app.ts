@@ -8,8 +8,10 @@ import type { Config, Adapters } from '../types/index.js';
 import type { RepoManager } from '../repos/manager.js';
 import { repoRoutes } from './routes/repos.js';
 import { healthRoutes } from './routes/health.js';
+import { indexRoutes } from './routes/index.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import type { RepoStore } from '../repos/store.js';
+import type { FalkorDBAdapter } from '../adapters/falkordb.js';
 
 interface SessionEntry {
   transport: StreamableHTTPServerTransport;
@@ -36,7 +38,8 @@ export function createApp(
   adapters: Adapters,
   repoManager: RepoManager,
   store: RepoStore,
-  startTime: Date
+  startTime: Date,
+  falkorAdapter: FalkorDBAdapter,
 ): express.Application {
   // createMcpExpressApp() creates an Express app pre-configured with DNS rebinding protection.
   // This protects against SSRF attacks when the server is bound to localhost.
@@ -138,6 +141,10 @@ export function createApp(
 
   // ── API routes ──────────────────────────────────────────────────────────────
 
+  // Index endpoints: POST /repos/index-all, POST /repos/:id/index
+  // Mounted first so /repos/index-all is not captured by /repos/:id/index
+  app.use(indexRoutes(repoManager, falkorAdapter, config));
+
   // Repository management: GET/POST /repos, DELETE /repos/:id
   app.use(repoRoutes(repoManager));
 
@@ -146,9 +153,6 @@ export function createApp(
 
   // ── Global error handler (must be last) ────────────────────────────────────
   app.use(errorHandler);
-
-  // Suppress unused variable warning for config — kept for future use
-  void config;
 
   return app;
 }

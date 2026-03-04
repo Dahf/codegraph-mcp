@@ -280,5 +280,5 @@ export function extractGo(
     }
   }
 
-  return { functions, classes, types, imports };
+  return { functions, classes, types, imports, callSites: [] };
 }

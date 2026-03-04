@@ -347,7 +347,7 @@ function extractSymbols(
     imports.push({ modulePath, filePath, symbols });
   }
 
-  return { functions, classes, types, imports };
+  return { functions, classes, types, imports, callSites: [] };
 }
 
 // ── Public extractor functions ────────────────────────────────────────────────

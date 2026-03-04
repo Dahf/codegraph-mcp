@@ -249,5 +249,5 @@ export function extractRust(
     });
   }
 
-  return { functions, classes, types, imports };
+  return { functions, classes, types, imports, callSites: [] };
 }
