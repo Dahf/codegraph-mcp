@@ -9,20 +9,28 @@
     "start": "node dist/index.js"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.27.1",
     "@lancedb/lancedb": "latest",
+    "@modelcontextprotocol/sdk": "^1.27.1",
     "express": "^5.2.1",
     "falkordb": "^4.x",
     "ollama": "latest",
     "pino": "^9.x",
+    "simple-git": "^3.32.3",
+    "tree-sitter": "^0.22.4",
+    "tree-sitter-cpp": "^0.23.4",
+    "tree-sitter-go": "^0.23.4",
+    "tree-sitter-javascript": "^0.23.1",
+    "tree-sitter-python": "^0.23.6",
+    "tree-sitter-rust": "^0.24.0",
+    "tree-sitter-typescript": "^0.23.2",
     "zod": "^4.x"
   },
   "devDependencies": {
     "@types/express": "^5.0.0",
     "@types/node": "^22.x",
     "pino-pretty": "^13.x",
-    "tsx": "^4.x",
     "tsup": "^8.x",
+    "tsx": "^4.x",
     "typescript": "^5.x"
   }
 }

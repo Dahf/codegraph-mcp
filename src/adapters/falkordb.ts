@@ -1,4 +1,5 @@
 import { createClient } from 'falkordb';
+import { Graph } from '@falkordb/graph';
 import type { Adapter } from '../types/index.js';
 
 type FalkorDBClient = ReturnType<typeof createClient>;
@@ -72,5 +73,18 @@ export class FalkorDBAdapter implements Adapter {
       this.client = null;
       console.log('FalkorDB connection closed');
     }
+  }
+
+  /**
+   * Expose graph-level operations for the indexing pipeline.
+   * Reuses the existing authenticated connection — no second auth handshake.
+   * Throws if called before connect().
+   */
+  selectGraph(graphName: string): Graph {
+    if (this.client === null) {
+      throw new Error('FalkorDB not connected — call connect() before selectGraph()');
+    }
+    // FalkorDBClient includes the graph module — cast to Graph's required client subtype
+    return new Graph(this.client as ConstructorParameters<typeof Graph>[0], graphName);
   }
 }
