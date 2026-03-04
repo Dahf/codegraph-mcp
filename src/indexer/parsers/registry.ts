@@ -6,6 +6,8 @@ import Rust from 'tree-sitter-rust';
 import Go from 'tree-sitter-go';
 import Cpp from 'tree-sitter-cpp';
 import type { ExtractedSymbols } from '../../types/index.js';
+import { extractTypeScript, extractTsx, extractJavaScript } from './typescript.js';
+import { extractPython } from './python.js';
 
 // Extractor function signature — implemented per-language in 02-02 and 02-03
 export type ExtractorFn = (
@@ -75,11 +77,11 @@ export const PARSERS: Record<string, Parser> = {
 };
 
 export const LANGUAGE_REGISTRY: Record<string, LanguageConfig> = {
-  '.ts':  { grammar: TypeScriptGrammar.typescript, language: 'typescript', extractor: notImplemented('typescript') },
-  '.tsx': { grammar: TypeScriptGrammar.tsx,         language: 'tsx',        extractor: notImplemented('tsx') },
-  '.js':  { grammar: JavaScript,                    language: 'javascript', extractor: notImplemented('javascript') },
-  '.mjs': { grammar: JavaScript,                    language: 'javascript', extractor: notImplemented('javascript') },
-  '.py':  { grammar: Python,                        language: 'python',     extractor: notImplemented('python') },
+  '.ts':  { grammar: TypeScriptGrammar.typescript, language: 'typescript', extractor: extractTypeScript },
+  '.tsx': { grammar: TypeScriptGrammar.tsx,         language: 'tsx',        extractor: extractTsx },
+  '.js':  { grammar: JavaScript,                    language: 'javascript', extractor: extractJavaScript },
+  '.mjs': { grammar: JavaScript,                    language: 'javascript', extractor: extractJavaScript },
+  '.py':  { grammar: Python,                        language: 'python',     extractor: extractPython },
   '.rs':  { grammar: Rust,                          language: 'rust',       extractor: notImplemented('rust') },
   '.go':  { grammar: Go,                            language: 'go',         extractor: notImplemented('go') },
   '.cpp': { grammar: Cpp,                           language: 'cpp',        extractor: notImplemented('cpp') },
