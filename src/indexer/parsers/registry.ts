@@ -8,6 +8,9 @@ import Cpp from 'tree-sitter-cpp';
 import type { ExtractedSymbols } from '../../types/index.js';
 import { extractTypeScript, extractTsx, extractJavaScript } from './typescript.js';
 import { extractPython } from './python.js';
+import { extractRust } from './rust.js';
+import { extractGo } from './go.js';
+import { extractCpp } from './cpp.js';
 
 // Extractor function signature — implemented per-language in 02-02 and 02-03
 export type ExtractorFn = (
@@ -82,10 +85,10 @@ export const LANGUAGE_REGISTRY: Record<string, LanguageConfig> = {
   '.js':  { grammar: JavaScript,                    language: 'javascript', extractor: extractJavaScript },
   '.mjs': { grammar: JavaScript,                    language: 'javascript', extractor: extractJavaScript },
   '.py':  { grammar: Python,                        language: 'python',     extractor: extractPython },
-  '.rs':  { grammar: Rust,                          language: 'rust',       extractor: notImplemented('rust') },
-  '.go':  { grammar: Go,                            language: 'go',         extractor: notImplemented('go') },
-  '.cpp': { grammar: Cpp,                           language: 'cpp',        extractor: notImplemented('cpp') },
-  '.cc':  { grammar: Cpp,                           language: 'cpp',        extractor: notImplemented('cpp') },
-  '.h':   { grammar: Cpp,                           language: 'cpp',        extractor: notImplemented('cpp') },
-  '.hpp': { grammar: Cpp,                           language: 'cpp',        extractor: notImplemented('cpp') },
+  '.rs':  { grammar: Rust,                          language: 'rust',       extractor: extractRust },
+  '.go':  { grammar: Go,                            language: 'go',         extractor: extractGo },
+  '.cpp': { grammar: Cpp,                           language: 'cpp',        extractor: extractCpp },
+  '.cc':  { grammar: Cpp,                           language: 'cpp',        extractor: extractCpp },
+  '.h':   { grammar: Cpp,                           language: 'cpp',        extractor: extractCpp },
+  '.hpp': { grammar: Cpp,                           language: 'cpp',        extractor: extractCpp },
 };
