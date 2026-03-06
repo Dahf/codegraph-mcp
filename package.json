@@ -14,6 +14,7 @@
     "express": "^5.2.1",
     "falkordb": "^4.x",
     "ollama": "latest",
+    "p-limit": "^7.3.0",
     "pino": "^9.x",
     "simple-git": "^3.32.3",
     "tree-sitter": "^0.22.4",
