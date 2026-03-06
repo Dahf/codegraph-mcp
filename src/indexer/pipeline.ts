@@ -150,6 +150,9 @@ export class IndexPipeline {
         }));
       }
 
+      // Free ASTs — no longer needed after call-site extraction
+      allTrees.length = 0;
+
       // Stage 4: Two-pass call-graph resolution and FalkorDB write
 
       // Pass 1: Build symbol map from all extracted functions
@@ -193,27 +196,37 @@ export class IndexPipeline {
       result.edgesCreated = await writeGraph(repo.id, allSymbols, callEdges, this.falkorAdapter);
 
       // Stage 5: Embed and store vectors in LanceDB
-      // Wrapped in its own try/catch so embedding failure does not affect graph data
+      // Process in batches to avoid OOM on large repos
       try {
-        const chunks = allSymbols.flatMap(({ file, symbols }) => {
-          const source = sourceTexts.get(file.relativePath) ?? '';
-          return extractChunks(symbols, source, file.relativePath, file.language);
-        });
+        const EMBED_BATCH_SIZE = 50;
+        let totalStored = 0;
+        let totalFailed = 0;
 
-        if (chunks.length > 0) {
-          const { stored, failed } = await embedAndStore(
-            chunks,
-            repo.id,
-            this.ollamaAdapter,
-            this.lanceAdapter,
-            { model: 'nomic-embed-text', concurrency: 5 },
-          );
-          result.embeddingsStored = stored;
-          result.embeddingsFailed = failed;
-        } else {
-          result.embeddingsStored = 0;
-          result.embeddingsFailed = 0;
+        for (let i = 0; i < allSymbols.length; i += EMBED_BATCH_SIZE) {
+          const batch = allSymbols.slice(i, i + EMBED_BATCH_SIZE);
+          const chunks = batch.flatMap(({ file, symbols }) => {
+            const source = sourceTexts.get(file.relativePath) ?? '';
+            return extractChunks(symbols, source, file.relativePath, file.language);
+          });
+
+          if (chunks.length > 0) {
+            const { stored, failed } = await embedAndStore(
+              chunks,
+              repo.id,
+              this.ollamaAdapter,
+              this.lanceAdapter,
+              { model: 'nomic-embed-text', concurrency: 5 },
+            );
+            totalStored += stored;
+            totalFailed += failed;
+          }
         }
+
+        // Free source texts — no longer needed
+        sourceTexts.clear();
+
+        result.embeddingsStored = totalStored;
+        result.embeddingsFailed = totalFailed;
       } catch (err) {
         console.error(`[pipeline] Embedding stage failed: ${err}`);
         result.embeddingsStored = 0;
