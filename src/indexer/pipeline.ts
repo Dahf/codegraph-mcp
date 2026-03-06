@@ -206,7 +206,7 @@ export class IndexPipeline {
             repo.id,
             this.ollamaAdapter,
             this.lanceAdapter,
-            { model: 'vuongnguyen2212/CodeRankEmbed', concurrency: 5 },
+            { model: 'nomic-embed-text', concurrency: 5 },
           );
           result.embeddingsStored = stored;
           result.embeddingsFailed = failed;

@@ -75,6 +75,8 @@ function findLeadingCommentStart(lines: string[], lineIndex: number): number {
  * @param language - Language label (typescript, python, etc.)
  * @returns Array of CodeChunks ready for embedding
  */
+const MAX_CHUNK_LINES = 150;
+
 export function extractChunks(
   symbols: ExtractedSymbols,
   sourceText: string,
@@ -86,34 +88,18 @@ export function extractChunks(
   const lines = sourceText.split('\n');
   const chunks: CodeChunk[] = [];
 
-  // One chunk per function
   for (const fn of symbols.functions) {
     const adjustedStart = findLeadingCommentStart(lines, fn.startLine - 1);
-    const text = lines.slice(adjustedStart, fn.endLine).join('\n');
+    const endLine = Math.min(fn.endLine, adjustedStart + MAX_CHUNK_LINES);
+    const text = lines.slice(adjustedStart, endLine).join('\n');
     const symbolName = fn.className ? `${fn.className}.${fn.name}` : fn.name;
 
     chunks.push({
       symbolName,
       symbolType: 'function',
       filePath,
-      startLine: adjustedStart + 1, // back to 1-indexed
-      endLine: fn.endLine,
-      language,
-      sourceText: text,
-    });
-  }
-
-  // One chunk per class
-  for (const cls of symbols.classes) {
-    const adjustedStart = findLeadingCommentStart(lines, cls.startLine - 1);
-    const text = lines.slice(adjustedStart, cls.endLine).join('\n');
-
-    chunks.push({
-      symbolName: cls.name,
-      symbolType: 'class',
-      filePath,
       startLine: adjustedStart + 1,
-      endLine: cls.endLine,
+      endLine,
       language,
       sourceText: text,
     });
