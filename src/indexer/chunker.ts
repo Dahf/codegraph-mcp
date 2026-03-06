@@ -76,6 +76,55 @@ function findLeadingCommentStart(lines: string[], lineIndex: number): number {
  * @returns Array of CodeChunks ready for embedding
  */
 const MAX_CHUNK_LINES = 150;
+const OVERLAP_LINES = 20;
+
+function splitIntoChunks(
+  lines: string[],
+  startIdx: number,
+  endIdx: number,
+  symbolName: string,
+  symbolType: 'function' | 'class',
+  filePath: string,
+  language: string,
+): CodeChunk[] {
+  const totalLines = endIdx - startIdx;
+  if (totalLines <= MAX_CHUNK_LINES) {
+    return [{
+      symbolName,
+      symbolType,
+      filePath,
+      startLine: startIdx + 1,
+      endLine: endIdx,
+      language,
+      sourceText: lines.slice(startIdx, endIdx).join('\n'),
+    }];
+  }
+
+  const chunks: CodeChunk[] = [];
+  let offset = startIdx;
+  let part = 1;
+
+  while (offset < endIdx) {
+    const chunkEnd = Math.min(offset + MAX_CHUNK_LINES, endIdx);
+    const name = `${symbolName} [part ${part}]`;
+
+    chunks.push({
+      symbolName: name,
+      symbolType,
+      filePath,
+      startLine: offset + 1,
+      endLine: chunkEnd,
+      language,
+      sourceText: lines.slice(offset, chunkEnd).join('\n'),
+    });
+
+    offset = chunkEnd - OVERLAP_LINES;
+    if (offset >= endIdx) break;
+    part++;
+  }
+
+  return chunks;
+}
 
 export function extractChunks(
   symbols: ExtractedSymbols,
@@ -90,19 +139,13 @@ export function extractChunks(
 
   for (const fn of symbols.functions) {
     const adjustedStart = findLeadingCommentStart(lines, fn.startLine - 1);
-    const endLine = Math.min(fn.endLine, adjustedStart + MAX_CHUNK_LINES);
-    const text = lines.slice(adjustedStart, endLine).join('\n');
     const symbolName = fn.className ? `${fn.className}.${fn.name}` : fn.name;
+    chunks.push(...splitIntoChunks(lines, adjustedStart, fn.endLine, symbolName, 'function', filePath, language));
+  }
 
-    chunks.push({
-      symbolName,
-      symbolType: 'function',
-      filePath,
-      startLine: adjustedStart + 1,
-      endLine,
-      language,
-      sourceText: text,
-    });
+  for (const cls of symbols.classes) {
+    const adjustedStart = findLeadingCommentStart(lines, cls.startLine - 1);
+    chunks.push(...splitIntoChunks(lines, adjustedStart, cls.endLine, cls.name, 'class', filePath, language));
   }
 
   return chunks;
