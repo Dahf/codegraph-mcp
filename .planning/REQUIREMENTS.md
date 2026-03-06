@@ -16,7 +16,7 @@ Requirements for initial release. Each maps to roadmap phases.
 - [x] **PARS-05**: System can parse C++ files via TreeSitter
 - [x] **PARS-06**: System extracts functions, classes, types, and imports from each language
 - [x] **PARS-07**: System chunks code at function/class boundaries for embedding
-- [ ] **PARS-08**: System generates embeddings locally via Ollama (CodeRankEmbed)
+- [x] **PARS-08**: System generates embeddings locally via Ollama (CodeRankEmbed)
 - [x] **PARS-09**: System extracts call-graph relationships (function-to-function calls)
 - [ ] **PARS-10**: System re-indexes only changed files on subsequent runs (incremental)
 
@@ -90,7 +90,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | PARS-05 | Phase 2 | Complete |
 | PARS-06 | Phase 2 | Complete |
 | PARS-07 | Phase 3 | Complete |
-| PARS-08 | Phase 3 | Pending |
+| PARS-08 | Phase 3 | Complete |
 | PARS-09 | Phase 2 | Complete |
 | PARS-10 | Phase 5 | Pending |
 | STOR-01 | Phase 2 | Complete |

@@ -7,8 +7,8 @@ last_updated: "2026-03-06T12:07:31Z"
 progress:
   total_phases: 3
   completed_phases: 2
-  total_plans: 8
-  completed_plans: 8
+  total_plans: 10
+  completed_plans: 10
 ---
 
 # Project State
@@ -18,16 +18,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-02)
 
 **Core value:** AI development tools get instant, accurate cross-codebase context — so developers never have to manually explain their project structure again.
-**Current focus:** Phase 3 - Embedding & Vector Storage
+**Current focus:** Phase 3 Complete - Ready for Phase 4
 
 ## Current Position
 
-Phase: 3 of 6 (Embedding & Vector Storage)
-Plan: 1 of 2 in current phase
-Status: In Progress
-Last activity: 2026-03-06 — Plan 03-01 complete (embedding building blocks: OllamaAdapter.embed(), LanceDB CRUD, chunker, IndexResult counters)
+Phase: 3 of 6 (Embedding & Vector Storage) -- COMPLETE
+Plan: 2 of 2 in current phase -- PHASE COMPLETE
+Status: Phase 3 Complete
+Last activity: 2026-03-06 — Plan 03-02 complete (embedder orchestrator, Stage 5 pipeline integration, adapter wiring)
 
-Progress: [████░░░░░░] 45%
+Progress: [█████░░░░░] 50%
 
 ## Performance Metrics
 
@@ -42,14 +42,15 @@ Progress: [████░░░░░░] 45%
 |-------|-------|-------|----------|
 | 01-foundation | 3 | 22 min | 7 min |
 | 02-parsing-graph-storage | 4 | 44 min | 11 min |
-| 03-embedding-vector-storage | 1 | 3 min | 3 min |
+| 03-embedding-vector-storage | 2 | 7 min | 4 min |
 
 **Recent Trend:**
-- Last 5 plans: 02-02 (11 min), 02-03 (4 min), 02-04 (15 min), 03-01 (3 min)
+- Last 5 plans: 02-03 (4 min), 02-04 (15 min), 03-01 (3 min), 03-02 (4 min)
 - Trend: stable
 
 *Updated after each plan completion*
 | Phase 03-embedding-vector-storage P01 | 3 | 2 tasks | 4 files |
+| Phase 03-embedding-vector-storage P02 | 4 | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -86,6 +87,9 @@ Recent decisions affecting current work:
 - [Phase 02-parsing-graph-storage]: indexRoutes mounted before repoRoutes to prevent Express capturing 'index-all' as :id parameter
 - [03-01]: LanceDB createTable uses mode 'overwrite' (not existOk) for idempotent table creation
 - [03-01]: findLeadingCommentStart stops at double blank lines to avoid capturing unrelated comments
+- [03-02]: p-limit concurrency of 5 for Ollama embedding requests -- balances throughput vs resource usage
+- [03-02]: Stage 5 has independent try/catch so embedding failure never affects graph data (embeddingsFailed=-1 signals total failure)
+- [03-02]: Delete-before-insert pattern for LanceDB re-indexing -- removes old embeddings by repoId before adding new
 
 ### Pending Todos
 
@@ -100,5 +104,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-06
-Stopped at: Completed 03-embedding-vector-storage/03-01-PLAN.md (embedding building blocks: OllamaAdapter.embed(), LanceDB CRUD, chunker, IndexResult counters)
+Stopped at: Completed 03-embedding-vector-storage/03-02-PLAN.md (embedder orchestrator, Stage 5 pipeline integration, full adapter wiring -- Phase 3 COMPLETE)
 Resume file: None
