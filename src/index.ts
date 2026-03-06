@@ -73,7 +73,7 @@ const repoStore = new RepoStore(config.repos);
 const repoManager = new RepoManager(repoStore, configPath);
 
 // Build the Express app with MCP routes, repo API, and health endpoints
-const app = createApp(config, adapters, repoManager, repoStore, startTime, falkordb);
+const app = createApp(config, adapters, repoManager, repoStore, startTime, falkordb, ollama, lancedb);
 
 // Start the HTTP server
 const httpServer: Server = createServer(app);

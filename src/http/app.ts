@@ -12,6 +12,8 @@ import { indexRoutes } from './routes/index.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import type { RepoStore } from '../repos/store.js';
 import type { FalkorDBAdapter } from '../adapters/falkordb.js';
+import type { OllamaAdapter } from '../adapters/ollama.js';
+import type { LanceDBAdapter } from '../adapters/lancedb.js';
 
 interface SessionEntry {
   transport: StreamableHTTPServerTransport;
@@ -40,6 +42,8 @@ export function createApp(
   store: RepoStore,
   startTime: Date,
   falkorAdapter: FalkorDBAdapter,
+  ollamaAdapter: OllamaAdapter,
+  lanceAdapter: LanceDBAdapter,
 ): express.Application {
   // createMcpExpressApp() creates an Express app pre-configured with DNS rebinding protection.
   // This protects against SSRF attacks when the server is bound to localhost.
@@ -143,7 +147,7 @@ export function createApp(
 
   // Index endpoints: POST /repos/index-all, POST /repos/:id/index
   // Mounted first so /repos/index-all is not captured by /repos/:id/index
-  app.use(indexRoutes(repoManager, falkorAdapter, config));
+  app.use(indexRoutes(repoManager, falkorAdapter, ollamaAdapter, lanceAdapter, config));
 
   // Repository management: GET/POST /repos, DELETE /repos/:id
   app.use(repoRoutes(repoManager));

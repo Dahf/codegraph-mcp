@@ -2,6 +2,8 @@ import path from 'node:path';
 import { rm } from 'node:fs/promises';
 import type Parser from 'tree-sitter';
 import type { FalkorDBAdapter } from '../adapters/falkordb.js';
+import type { OllamaAdapter } from '../adapters/ollama.js';
+import type { LanceDBAdapter } from '../adapters/lancedb.js';
 import type {
   Config,
   RepoConfig,
@@ -15,6 +17,8 @@ import { cloneRepo } from './cloner.js';
 import { walkRepo, readSourceFile } from './walker.js';
 import { LANGUAGE_REGISTRY, PARSERS } from './parsers/registry.js';
 import { writeGraph } from './graph-writer.js';
+import { extractChunks } from './chunker.js';
+import { embedAndStore } from './embedder.js';
 
 /**
  * Walk all nodes of a tree and collect call_expression callee names.
@@ -73,6 +77,8 @@ function extractCallSiteNames(node: Parser.SyntaxNode): string[] {
 export class IndexPipeline {
   constructor(
     private readonly falkorAdapter: FalkorDBAdapter,
+    private readonly ollamaAdapter: OllamaAdapter,
+    private readonly lanceAdapter: LanceDBAdapter,
     private readonly config: Config,
   ) {}
 
@@ -99,6 +105,7 @@ export class IndexPipeline {
       // We also capture the parsed tree for call-site extraction after symbols are done.
       const allSymbols: Array<{ file: SourceFile; symbols: ExtractedSymbols }> = [];
       const allTrees: Array<{ file: SourceFile; tree: Parser.Tree }> = [];
+      const sourceTexts = new Map<string, string>();
 
       for (const file of files) {
         try {
@@ -107,6 +114,8 @@ export class IndexPipeline {
             result.failedFiles.push({ path: file.relativePath, error: 'Could not read file' });
             continue;
           }
+
+          sourceTexts.set(file.relativePath, source);
 
           const langConfig = LANGUAGE_REGISTRY[path.extname(file.absolutePath).toLowerCase()];
           if (!langConfig) continue;
@@ -182,6 +191,34 @@ export class IndexPipeline {
 
       // Write symbols and edges to FalkorDB
       result.edgesCreated = await writeGraph(repo.id, allSymbols, callEdges, this.falkorAdapter);
+
+      // Stage 5: Embed and store vectors in LanceDB
+      // Wrapped in its own try/catch so embedding failure does not affect graph data
+      try {
+        const chunks = allSymbols.flatMap(({ file, symbols }) => {
+          const source = sourceTexts.get(file.relativePath) ?? '';
+          return extractChunks(symbols, source, file.relativePath, file.language);
+        });
+
+        if (chunks.length > 0) {
+          const { stored, failed } = await embedAndStore(
+            chunks,
+            repo.id,
+            this.ollamaAdapter,
+            this.lanceAdapter,
+            { model: 'vuongnguyen2212/CodeRankEmbed', concurrency: 5 },
+          );
+          result.embeddingsStored = stored;
+          result.embeddingsFailed = failed;
+        } else {
+          result.embeddingsStored = 0;
+          result.embeddingsFailed = 0;
+        }
+      } catch (err) {
+        console.error(`[pipeline] Embedding stage failed: ${err}`);
+        result.embeddingsStored = 0;
+        result.embeddingsFailed = -1; // signals total failure
+      }
 
     } finally {
       // Always clean up — disk usage grows unbounded otherwise

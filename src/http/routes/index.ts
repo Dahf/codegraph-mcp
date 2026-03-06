@@ -12,6 +12,8 @@
  */
 import { Router } from 'express';
 import type { FalkorDBAdapter } from '../../adapters/falkordb.js';
+import type { OllamaAdapter } from '../../adapters/ollama.js';
+import type { LanceDBAdapter } from '../../adapters/lancedb.js';
 import type { Config } from '../../types/index.js';
 import type { RepoManager } from '../../repos/manager.js';
 import { IndexPipeline } from '../../indexer/pipeline.js';
@@ -19,6 +21,8 @@ import { IndexPipeline } from '../../indexer/pipeline.js';
 export function indexRoutes(
   repoManager: RepoManager,
   falkorAdapter: FalkorDBAdapter,
+  ollamaAdapter: OllamaAdapter,
+  lanceAdapter: LanceDBAdapter,
   config: Config,
 ): Router {
   const router = Router();
@@ -31,7 +35,7 @@ export function indexRoutes(
       const results = [];
       for (const repo of repos) {
         try {
-          const pipeline = new IndexPipeline(falkorAdapter, config);
+          const pipeline = new IndexPipeline(falkorAdapter, ollamaAdapter, lanceAdapter, config);
           results.push(await pipeline.run(repo));
         } catch (err) {
           const msg = err instanceof Error ? err.message : String(err);
@@ -54,7 +58,7 @@ export function indexRoutes(
         res.status(404).json({ error: 'Repository not found', id: req.params.id });
         return;
       }
-      const pipeline = new IndexPipeline(falkorAdapter, config);
+      const pipeline = new IndexPipeline(falkorAdapter, ollamaAdapter, lanceAdapter, config);
       const result = await pipeline.run(repo);
       res.status(200).json(result);
     } catch (err) {
