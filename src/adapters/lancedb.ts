@@ -49,6 +49,55 @@ export class LanceDBAdapter implements Adapter {
     }
   }
 
+  /**
+   * Get the underlying LanceDB connection. Throws if not connected.
+   */
+  getConnection(): lancedb.Connection {
+    if (this.db === null) {
+      throw new Error('LanceDB connection not open -- call connect() first');
+    }
+    return this.db;
+  }
+
+  /**
+   * Create a table (or overwrite if it already exists) with initial data.
+   */
+  async createOrOverwriteTable(
+    name: string,
+    data: Record<string, unknown>[],
+  ): Promise<lancedb.Table> {
+    if (this.db === null) {
+      throw new Error('LanceDB connection not open -- call connect() first');
+    }
+    return this.db.createTable(name, data, { mode: 'overwrite' });
+  }
+
+  /**
+   * Open an existing table by name.
+   */
+  async openTable(name: string): Promise<lancedb.Table> {
+    if (this.db === null) {
+      throw new Error('LanceDB connection not open -- call connect() first');
+    }
+    return this.db.openTable(name);
+  }
+
+  /**
+   * Add rows to an existing table.
+   */
+  async addRows(tableName: string, data: Record<string, unknown>[]): Promise<void> {
+    const table = await this.openTable(tableName);
+    await table.add(data);
+  }
+
+  /**
+   * Delete rows from a table matching a SQL predicate.
+   */
+  async deleteRows(tableName: string, predicate: string): Promise<void> {
+    const table = await this.openTable(tableName);
+    await table.delete(predicate);
+  }
+
   async close(): Promise<void> {
     if (this.db !== null) {
       try {

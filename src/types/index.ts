@@ -115,4 +115,8 @@ export interface IndexResult {
   symbolsExtracted: number;
   edgesCreated: number;
   failedFiles: Array<{ path: string; error: string }>;
+  /** Number of embedding vectors successfully stored (Phase 3+) */
+  embeddingsStored?: number;
+  /** Number of embedding vectors that failed to generate or store (Phase 3+) */
+  embeddingsFailed?: number;
 }

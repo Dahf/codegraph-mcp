@@ -47,6 +47,20 @@ export class OllamaAdapter implements Adapter {
     }
   }
 
+  /**
+   * Generate embeddings for one or more text inputs.
+   * @param texts - A single string or array of strings to embed
+   * @param model - The Ollama model name to use (e.g. 'coderanker')
+   * @returns Array of embedding vectors (one per input text)
+   */
+  async embed(texts: string | string[], model: string): Promise<number[][]> {
+    if (this.client === null) {
+      throw new Error('Ollama client not initialized -- call connect() first');
+    }
+    const response = await this.client.embed({ model, input: texts, truncate: true });
+    return response.embeddings;
+  }
+
   async close(): Promise<void> {
     // Ollama uses a stateless HTTP client — no persistent connection to close
     this.client = null;
