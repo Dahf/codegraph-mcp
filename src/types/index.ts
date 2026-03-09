@@ -120,3 +120,27 @@ export interface IndexResult {
   /** Number of embedding vectors that failed to generate or store (Phase 3+) */
   embeddingsFailed?: number;
 }
+
+// ── Query result types (Phase 4) ──────────────────────────────────────────────
+
+/** A single code match returned by the Semantic Search tool (search_code) */
+export interface SearchResult {
+  /** Full source text of the matched symbol */
+  sourceText: string;
+  /** File path relative to repo root */
+  filePath: string;
+  /** Name of the matched symbol (function/class name) */
+  symbolName: string;
+  /** Symbol kind: 'function' | 'class' | 'type' */
+  symbolType: string;
+  /** 1-indexed start line in the file */
+  startLine: number;
+  /** 1-indexed end line in the file */
+  endLine: number;
+  /** Language of the source file */
+  language: string;
+  /** Repository this symbol belongs to */
+  repoId: string;
+  /** Cosine similarity score in [0, 1] — higher is more similar */
+  score: number;
+}
