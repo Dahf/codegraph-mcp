@@ -4,6 +4,7 @@ import pLimit from 'p-limit';
 import type { QueryDeps } from '../query/vector.js';
 import { vectorSearch } from '../query/vector.js';
 import { getCallNeighbors, fetchSourceText } from '../query/graph.js';
+import { resolveRepo } from '../query/resolveRepo.js';
 import type { ContextBundle, ContextChunk } from '../types/index.js';
 
 // ── Token budget heuristic ────────────────────────────────────────────────────
@@ -193,22 +194,38 @@ export function registerContextBundle(server: McpServer, deps: QueryDeps): void 
     {
       title: 'Context Bundle',
       description:
-        'Assemble a pre-built context package for a development task. Returns the most relevant code, including call-graph neighbors, formatted for AI consumption. IMPORTANT: When the user mentions a specific repository, call list_repos first to get its UUID and pass it as repoId to scope results.',
+        'Assemble a pre-built context package for a development task. Returns the most relevant code, including call-graph neighbors, formatted for AI consumption. Use repoName to scope to a specific repository.',
       inputSchema: z.object({
-        task: z.string().describe('Description of the development task or question requiring context'),
+        task: z
+          .string()
+          .describe(
+            'Description of the development task or question requiring context. Do NOT include the repository name here — use repoName instead.',
+          ),
+        repoName: z
+          .string()
+          .optional()
+          .describe('Repository name to scope to (e.g. "RTFlex"). Case-insensitive.'),
+        repoId: z.string().optional().describe('Repository UUID (alternative to repoName)'),
         max_tokens: z
           .number()
           .int()
           .positive()
           .optional()
           .describe('Token budget for the context bundle (default: 4000)'),
-        repoId: z.string().optional().describe('Restrict to a specific repository ID'),
       }),
     },
     async (args): Promise<{ content: Array<{ type: 'text'; text: string }> }> => {
       try {
+        const { repoId, error } = resolveRepo(deps.config, {
+          repoId: args.repoId,
+          repoName: args.repoName,
+        });
+        if (error) {
+          return { content: [{ type: 'text', text: error }] };
+        }
+
         const maxTokens = args.max_tokens ?? 4000;
-        const bundle = await assembleBundle(deps, args.task, maxTokens, { repoId: args.repoId });
+        const bundle = await assembleBundle(deps, args.task, maxTokens, { repoId });
         const formattedOutput = formatBundle(bundle);
         return { content: [{ type: 'text', text: formattedOutput }] };
       } catch (err: unknown) {

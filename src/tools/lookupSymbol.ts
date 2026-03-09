@@ -2,6 +2,7 @@ import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { QueryDeps } from '../query/vector.js';
 import { lookupSymbol } from '../query/graph.js';
+import { resolveRepo } from '../query/resolveRepo.js';
 
 /**
  * Register the 'lookup_symbol' MCP tool on the given server instance.
@@ -15,28 +16,36 @@ export function registerLookupSymbol(server: McpServer, deps: QueryDeps): void {
     {
       title: 'Symbol Lookup',
       description:
-        'Find a function, class, or type definition by name. Returns source code, file location, and direct callers/callees from the call graph. IMPORTANT: When the user mentions a specific repository, call list_repos first to get its UUID and pass it as repoId.',
+        'Find a function, class, or type definition by name. Returns source code, file location, and direct callers/callees from the call graph. Use repoName to scope to a specific repository.',
       inputSchema: z.object({
         name: z.string().describe('Symbol name to look up (function, class, or type name)'),
-        repoId: z
+        repoName: z
           .string()
           .optional()
-          .describe('Restrict lookup to a specific repository ID'),
+          .describe('Repository name to search in (e.g. "RTFlex"). Case-insensitive.'),
+        repoId: z.string().optional().describe('Repository UUID (alternative to repoName)'),
       }),
     },
     async (args): Promise<{ content: Array<{ type: 'text'; text: string }> }> => {
       try {
-        const results = await lookupSymbol(deps, args.name, args.repoId);
+        const { repoId, error } = resolveRepo(deps.config, {
+          repoId: args.repoId,
+          repoName: args.repoName,
+        });
+        if (error) {
+          return { content: [{ type: 'text', text: error }] };
+        }
 
-        // When repoId was specified and results are empty, surface a helpful message.
-        if (args.repoId !== undefined && results.length === 0) {
-          const repoConfigured = deps.config.repos.find((r) => r.id === args.repoId);
+        const results = await lookupSymbol(deps, args.name, repoId);
+
+        if (repoId !== undefined && results.length === 0) {
+          const repoConfigured = deps.config.repos.find((r) => r.id === repoId);
           if (repoConfigured === undefined) {
             return {
               content: [
                 {
                   type: 'text',
-                  text: `Repo '${args.repoId}' has not been configured. Use POST /repos to add it.`,
+                  text: `Repo '${repoId}' has not been configured. Use POST /repos to add it.`,
                 },
               ],
             };
@@ -45,7 +54,7 @@ export function registerLookupSymbol(server: McpServer, deps: QueryDeps): void {
             content: [
               {
                 type: 'text',
-                text: `No symbol named '${args.name}' found in repo '${args.repoId}'. The repo may not have been indexed yet.`,
+                text: `No symbol named '${args.name}' found in repo '${repoConfigured.name}'. The repo may not have been indexed yet.`,
               },
             ],
           };
