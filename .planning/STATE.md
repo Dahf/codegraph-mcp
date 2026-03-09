@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-last_updated: "2026-03-09T10:17:02.736Z"
+last_updated: "2026-03-09T10:19:00.000Z"
 progress:
   total_phases: 4
   completed_phases: 3
   total_plans: 13
-  completed_plans: 10
+  completed_plans: 11
 ---
 
 # Project State
@@ -18,16 +18,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-02)
 
 **Core value:** AI development tools get instant, accurate cross-codebase context — so developers never have to manually explain their project structure again.
-**Current focus:** Phase 4 In Progress - Plan 2 of 4 complete
+**Current focus:** Phase 4 In Progress - Plan 3 of 4 complete
 
 ## Current Position
 
 Phase: 4 of 6 (MCP Query Tools) -- IN PROGRESS
-Plan: 2 of 4 in current phase
-Status: Phase 4 Plan 2 Complete
-Last activity: 2026-03-09 — Plan 04-02 complete (SymbolResult type, lookupSymbol, getCallNeighbors, fetchSourceText)
+Plan: 3 of 4 in current phase
+Status: Phase 4 Plan 3 Complete
+Last activity: 2026-03-09 — Plan 04-03 complete (search_code and lookup_symbol MCP tools live on every session)
 
-Progress: [███████░░░] 62%
+Progress: [████████░░] 69%
 
 ## Performance Metrics
 
@@ -53,6 +53,7 @@ Progress: [███████░░░] 62%
 | Phase 03-embedding-vector-storage P02 | 4 | 2 tasks | 5 files |
 | Phase 04-mcp-query-tools P01 | 8 | 3 tasks | 4 files |
 | Phase 04-mcp-query-tools P02 | 2 | 2 tasks | 2 files |
+| Phase 04-mcp-query-tools P03 | 2 | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -97,6 +98,9 @@ Recent decisions affecting current work:
 - [04-02]: Three separate graph.query() calls per node label instead of UNION — FalkorDB UNION across node types not guaranteed; merged client-side
 - [04-02]: Promise.allSettled for per-label queries — one label missing does not fail others
 - [04-02]: escapeSql() helper doubles single quotes in LanceDB WHERE values to prevent SQL injection in scalar scan
+- [04-03]: search_code wraps vectorSearch result in { results, repoId, count } envelope for client context
+- [04-03]: lookup_symbol distinguishes "not configured" vs "not indexed" empty results with separate descriptive messages
+- [04-03]: createMcpServer(deps: QueryDeps) — adapters passed through from app.ts closure, no lifecycle management inside server factory
 
 ### Pending Todos
 
@@ -111,5 +115,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-09
-Stopped at: Completed 04-mcp-query-tools/04-02-PLAN.md (SymbolResult type, lookupSymbol, getCallNeighbors, fetchSourceText -- Phase 4 Plan 2 complete)
+Stopped at: Completed 04-mcp-query-tools/04-03-PLAN.md (search_code and lookup_symbol MCP tools, createMcpServer(QueryDeps) wired in app.ts -- Phase 4 Plan 3 complete)
 Resume file: None
