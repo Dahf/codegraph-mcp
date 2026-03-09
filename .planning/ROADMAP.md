@@ -126,6 +126,6 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | 1. Foundation | 3/3 | Complete   | 2026-03-02 |
 | 2. Parsing & Graph Storage | 4/4 | Complete |  |
 | 3. Embedding & Vector Storage | 0/2 | Not started | - |
-| 4. MCP Query Tools | 0/4 | Not started | - |
+| 4. MCP Query Tools | 1/4 | In Progress|  |
 | 5. Re-indexing & Operations | 0/2 | Not started | - |
 | 6. Web Admin Dashboard | 0/3 | Not started | - |

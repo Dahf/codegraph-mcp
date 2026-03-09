@@ -2,12 +2,12 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: in-progress
-last_updated: "2026-03-06T12:07:31Z"
+status: unknown
+last_updated: "2026-03-09T10:17:02.736Z"
 progress:
-  total_phases: 3
-  completed_phases: 2
-  total_plans: 10
+  total_phases: 4
+  completed_phases: 3
+  total_plans: 13
   completed_plans: 10
 ---
 
@@ -18,16 +18,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-02)
 
 **Core value:** AI development tools get instant, accurate cross-codebase context — so developers never have to manually explain their project structure again.
-**Current focus:** Phase 3 Complete - Ready for Phase 4
+**Current focus:** Phase 4 In Progress - Plan 1 of 4 complete
 
 ## Current Position
 
-Phase: 3 of 6 (Embedding & Vector Storage) -- COMPLETE
-Plan: 2 of 2 in current phase -- PHASE COMPLETE
-Status: Phase 3 Complete
-Last activity: 2026-03-06 — Plan 03-02 complete (embedder orchestrator, Stage 5 pipeline integration, adapter wiring)
+Phase: 4 of 6 (MCP Query Tools) -- IN PROGRESS
+Plan: 1 of 4 in current phase
+Status: Phase 4 Plan 1 Complete
+Last activity: 2026-03-09 — Plan 04-01 complete (EMBED_MODEL constant, SearchResult type, vectorSearch function)
 
-Progress: [█████░░░░░] 50%
+Progress: [██████░░░░] 58%
 
 ## Performance Metrics
 
@@ -51,6 +51,7 @@ Progress: [█████░░░░░] 50%
 *Updated after each plan completion*
 | Phase 03-embedding-vector-storage P01 | 3 | 2 tasks | 4 files |
 | Phase 03-embedding-vector-storage P02 | 4 | 2 tasks | 5 files |
+| Phase 04-mcp-query-tools P01 | 8 | 3 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -90,6 +91,8 @@ Recent decisions affecting current work:
 - [03-02]: p-limit concurrency of 5 for Ollama embedding requests -- balances throughput vs resource usage
 - [03-02]: Stage 5 has independent try/catch so embedding failure never affects graph data (embeddingsFailed=-1 signals total failure)
 - [03-02]: Delete-before-insert pattern for LanceDB re-indexing -- removes old embeddings by repoId before adding new
+- [Phase 04-mcp-query-tools]: EMBED_MODEL shared constant eliminates string duplication between indexing and query layers
+- [Phase 04-mcp-query-tools]: vectorSearch casts table.search() result to lancedb.VectorQuery for distanceType access
 
 ### Pending Todos
 
@@ -103,6 +106,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-06
-Stopped at: Completed 03-embedding-vector-storage/03-02-PLAN.md (embedder orchestrator, Stage 5 pipeline integration, full adapter wiring -- Phase 3 COMPLETE)
+Last session: 2026-03-09
+Stopped at: Completed 04-mcp-query-tools/04-01-PLAN.md (EMBED_MODEL constant, SearchResult type, vectorSearch function -- Phase 4 Plan 1 complete)
 Resume file: None

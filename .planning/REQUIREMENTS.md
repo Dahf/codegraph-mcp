@@ -29,7 +29,7 @@ Requirements for initial release. Each maps to roadmap phases.
 ### MCP Server & Tools
 
 - [x] **MCPS-01**: MCP server runs with Streamable HTTP transport
-- [ ] **MCPS-02**: Semantic Search tool finds code via natural language query across all indexed repos
+- [x] **MCPS-02**: Semantic Search tool finds code via natural language query across all indexed repos
 - [ ] **MCPS-03**: Symbol Lookup tool finds definition by name, returns source code and file location
 - [ ] **MCPS-04**: Context Bundle tool auto-assembles relevant code context for a given task description
 
@@ -97,7 +97,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | STOR-02 | Phase 3 | Complete |
 | STOR-03 | Phase 2 | Complete |
 | MCPS-01 | Phase 1 | Complete (01-01) |
-| MCPS-02 | Phase 4 | Pending |
+| MCPS-02 | Phase 4 | Complete |
 | MCPS-03 | Phase 4 | Pending |
 | MCPS-04 | Phase 4 | Pending |
 | OPS-01 | Phase 1 | Complete |
