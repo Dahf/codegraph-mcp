@@ -15,7 +15,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 1: Foundation** - MCP server shell, storage connections, repo management API (completed 2026-03-02)
 - [ ] **Phase 2: Parsing & Graph Storage** - TreeSitter 5-language parsing, symbol extraction, call-graph, FalkorDB
 - [ ] **Phase 3: Embedding & Vector Storage** - Semantic chunking, Ollama embeddings, LanceDB storage
-- [ ] **Phase 4: MCP Query Tools** - Semantic Search, Symbol Lookup, and Context Bundle tools
+- [x] **Phase 4: MCP Query Tools** - Semantic Search, Symbol Lookup, and Context Bundle tools (completed 2026-03-09)
 - [ ] **Phase 5: Re-indexing & Operations** - Incremental indexing, git-hook automation
 - [ ] **Phase 6: Web Admin Dashboard** - Repository status UI, manual re-index, health stats
 
@@ -126,6 +126,6 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | 1. Foundation | 3/3 | Complete   | 2026-03-02 |
 | 2. Parsing & Graph Storage | 4/4 | Complete |  |
 | 3. Embedding & Vector Storage | 0/2 | Not started | - |
-| 4. MCP Query Tools | 3/4 | In Progress|  |
+| 4. MCP Query Tools | 4/4 | Complete   | 2026-03-09 |
 | 5. Re-indexing & Operations | 0/2 | Not started | - |
 | 6. Web Admin Dashboard | 0/3 | Not started | - |

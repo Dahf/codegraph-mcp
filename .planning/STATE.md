@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-last_updated: "2026-03-09T10:19:00.000Z"
+last_updated: "2026-03-09T10:35:26.307Z"
 progress:
   total_phases: 4
-  completed_phases: 3
+  completed_phases: 4
   total_plans: 13
-  completed_plans: 11
+  completed_plans: 13
 ---
 
 # Project State
@@ -18,16 +18,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-02)
 
 **Core value:** AI development tools get instant, accurate cross-codebase context — so developers never have to manually explain their project structure again.
-**Current focus:** Phase 4 In Progress - Plan 3 of 4 complete
+**Current focus:** Phase 4 Complete - All 4 plans done; ready for Phase 5
 
 ## Current Position
 
-Phase: 4 of 6 (MCP Query Tools) -- IN PROGRESS
-Plan: 3 of 4 in current phase
-Status: Phase 4 Plan 3 Complete
-Last activity: 2026-03-09 — Plan 04-03 complete (search_code and lookup_symbol MCP tools live on every session)
+Phase: 4 of 6 (MCP Query Tools) -- COMPLETE
+Plan: 4 of 4 in current phase (all complete)
+Status: Phase 4 Complete
+Last activity: 2026-03-09 — Plan 04-04 complete (get_context_bundle tool -- all three MCP tools live on every session)
 
-Progress: [████████░░] 69%
+Progress: [█████████░] 77%
 
 ## Performance Metrics
 
@@ -54,6 +54,7 @@ Progress: [████████░░] 69%
 | Phase 04-mcp-query-tools P01 | 8 | 3 tasks | 4 files |
 | Phase 04-mcp-query-tools P02 | 2 | 2 tasks | 2 files |
 | Phase 04-mcp-query-tools P03 | 2 | 2 tasks | 4 files |
+| Phase 04-mcp-query-tools P04 | 3 | 3 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -101,6 +102,8 @@ Recent decisions affecting current work:
 - [04-03]: search_code wraps vectorSearch result in { results, repoId, count } envelope for client context
 - [04-03]: lookup_symbol distinguishes "not configured" vs "not indexed" empty results with separate descriptive messages
 - [04-03]: createMcpServer(deps: QueryDeps) — adapters passed through from app.ts closure, no lifecycle management inside server factory
+- [Phase 04-mcp-query-tools]: Token budget uses 4-chars-per-token heuristic, default 4000 tokens (~16000 chars), caller-overridable via max_tokens
+- [Phase 04-mcp-query-tools]: Related chunks use startLine=0/endLine=0 sentinel when line info unavailable from graph — avoids fabricating line numbers
 
 ### Pending Todos
 
@@ -115,5 +118,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-09
-Stopped at: Completed 04-mcp-query-tools/04-03-PLAN.md (search_code and lookup_symbol MCP tools, createMcpServer(QueryDeps) wired in app.ts -- Phase 4 Plan 3 complete)
+Stopped at: Completed 04-mcp-query-tools/04-04-PLAN.md (get_context_bundle tool with token budget + call-graph expansion -- Phase 4 all 4 plans complete)
 Resume file: None
