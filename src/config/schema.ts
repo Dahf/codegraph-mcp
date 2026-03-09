@@ -4,12 +4,19 @@ import { z } from 'zod';
 // z.string().url() rejects SSH URLs (git@github.com:org/repo.git) — use regex instead
 const gitUrlRegex = /^(https?:\/\/|git@)[^\s]+$/;
 
-export const RepoSchema = z.object({
-  id: z.string().uuid(),
-  url: z.string().regex(gitUrlRegex, 'Must be a valid HTTPS or SSH git URL'),
-  branch: z.string().default('main'),
-  addedAt: z.string().datetime(),
-});
+export const RepoSchema = z
+  .object({
+    id: z.string().uuid(),
+    name: z.string().min(1).optional(),
+    url: z.string().regex(gitUrlRegex, 'Must be a valid HTTPS or SSH git URL'),
+    branch: z.string().default('main'),
+    addedAt: z.string().datetime(),
+  })
+  .transform((repo) => ({
+    ...repo,
+    // Derive name from URL if not provided (backwards compat for existing configs)
+    name: repo.name ?? repo.url.split('/').pop()?.replace(/\.git$/, '') ?? repo.url,
+  }));
 
 export const ConfigSchema = z.object({
   port: z.number().int().min(1).max(65535).default(4444),

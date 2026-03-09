@@ -24,9 +24,9 @@ export function repoRoutes(manager: RepoManager): Router {
   });
 
   // POST /repos — add a new repository
-  // Body: { url: string, branch?: string }
+  // Body: { url: string, branch?: string, name?: string }
   router.post('/repos', (req, res) => {
-    const { url, branch } = req.body as { url?: string; branch?: string };
+    const { url, branch, name } = req.body as { url?: string; branch?: string; name?: string };
 
     // Validate url is present and non-empty
     if (!url || typeof url !== 'string' || url.trim() === '') {
@@ -35,7 +35,7 @@ export function repoRoutes(manager: RepoManager): Router {
     }
 
     try {
-      const repo = manager.add(url.trim(), branch?.trim());
+      const repo = manager.add(url.trim(), branch?.trim(), name?.trim());
       res.status(201).json({
         ...repo,
         indexStatus: 'pending' as const,

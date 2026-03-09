@@ -2,24 +2,11 @@ import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { QueryDeps } from '../query/vector.js';
 
 /**
- * Extract a human-readable repository name from a git URL.
- *
- * Examples:
- *   https://github.com/user/my-repo.git  → my-repo
- *   git@github.com:user/my-repo.git      → my-repo
- *   https://github.com/user/my-repo      → my-repo
- */
-function repoNameFromUrl(url: string): string {
-  const last = url.split('/').pop() ?? url;
-  return last.replace(/\.git$/, '');
-}
-
-/**
  * Register the 'list_repos' MCP tool on the given server instance.
  *
- * Returns all configured repositories with their UUID, name (extracted from
- * git URL), URL, and branch. AI assistants should call this first to discover
- * available repoIds before using search_code or lookup_symbol.
+ * Returns all configured repositories with their UUID, name, URL, and branch.
+ * AI assistants should call this first to discover available repoIds before
+ * using search_code or lookup_symbol.
  */
 export function registerListRepos(server: McpServer, deps: QueryDeps): void {
   server.registerTool(
@@ -33,7 +20,7 @@ export function registerListRepos(server: McpServer, deps: QueryDeps): void {
     async (): Promise<{ content: Array<{ type: 'text'; text: string }> }> => {
       const repos = deps.config.repos.map((r) => ({
         id: r.id,
-        name: repoNameFromUrl(r.url),
+        name: r.name,
         url: r.url,
         branch: r.branch,
       }));

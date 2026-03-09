@@ -7,6 +7,15 @@ import type { RepoStore } from './store.js';
 const gitUrlRegex = /^(https?:\/\/|git@)[^\s]+$/;
 
 /**
+ * Extract a human-readable repository name from a git URL.
+ * e.g. https://github.com/user/RTFlex.git → RTFlex
+ */
+function repoNameFromUrl(url: string): string {
+  const last = url.split('/').pop() ?? url;
+  return last.replace(/\.git$/, '');
+}
+
+/**
  * Repository CRUD manager with config.json persistence.
  *
  * Wraps a RepoStore (in-memory) and keeps config.json on disk in sync
@@ -33,14 +42,18 @@ export class RepoManager {
    *
    * Validates the URL against the SSH/HTTPS regex, generates a UUID id,
    * sets addedAt to current ISO datetime, persists to config.json.
+   * If no name is provided, it is derived from the last segment of the git URL.
    */
-  add(url: string, branch: string = 'main'): RepoConfig {
+  add(url: string, branch: string = 'main', name?: string): RepoConfig {
     if (!gitUrlRegex.test(url)) {
       throw new Error('Invalid git URL: must be a valid HTTPS (https://...) or SSH (git@...) URL');
     }
 
+    const repoName = name?.trim() || repoNameFromUrl(url);
+
     const repo: RepoConfig = {
       id: randomUUID(),
+      name: repoName,
       url,
       branch,
       addedAt: new Date().toISOString(),
