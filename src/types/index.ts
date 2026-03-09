@@ -123,6 +123,30 @@ export interface IndexResult {
 
 // ── Query result types (Phase 4) ──────────────────────────────────────────────
 
+/** A named symbol match returned by the Symbol Lookup tool (lookup_symbol) */
+export interface SymbolResult {
+  /** Symbol kind: 'function' | 'class' | 'type' */
+  symbolType: string;
+  /** Name of the symbol */
+  symbolName: string;
+  /** File path relative to repo root */
+  filePath: string;
+  /** 1-indexed start line */
+  startLine: number;
+  /** 1-indexed end line */
+  endLine: number;
+  /** Language of the source file */
+  language: string;
+  /** Repository this symbol belongs to */
+  repoId: string;
+  /** Full source text (fetched from LanceDB; empty string if not indexed) */
+  sourceText: string;
+  /** Functions that directly call this symbol (empty for Class/Type nodes) */
+  callers: Array<{ name: string; filePath: string; repoId: string }>;
+  /** Functions this symbol directly calls (empty for Class/Type nodes) */
+  callees: Array<{ name: string; filePath: string; repoId: string }>;
+}
+
 /** A single code match returned by the Semantic Search tool (search_code) */
 export interface SearchResult {
   /** Full source text of the matched symbol */
