@@ -18,16 +18,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-02)
 
 **Core value:** AI development tools get instant, accurate cross-codebase context — so developers never have to manually explain their project structure again.
-**Current focus:** Phase 4 In Progress - Plan 1 of 4 complete
+**Current focus:** Phase 4 In Progress - Plan 2 of 4 complete
 
 ## Current Position
 
 Phase: 4 of 6 (MCP Query Tools) -- IN PROGRESS
-Plan: 1 of 4 in current phase
-Status: Phase 4 Plan 1 Complete
-Last activity: 2026-03-09 — Plan 04-01 complete (EMBED_MODEL constant, SearchResult type, vectorSearch function)
+Plan: 2 of 4 in current phase
+Status: Phase 4 Plan 2 Complete
+Last activity: 2026-03-09 — Plan 04-02 complete (SymbolResult type, lookupSymbol, getCallNeighbors, fetchSourceText)
 
-Progress: [██████░░░░] 58%
+Progress: [███████░░░] 62%
 
 ## Performance Metrics
 
@@ -52,6 +52,7 @@ Progress: [██████░░░░] 58%
 | Phase 03-embedding-vector-storage P01 | 3 | 2 tasks | 4 files |
 | Phase 03-embedding-vector-storage P02 | 4 | 2 tasks | 5 files |
 | Phase 04-mcp-query-tools P01 | 8 | 3 tasks | 4 files |
+| Phase 04-mcp-query-tools P02 | 2 | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -93,6 +94,9 @@ Recent decisions affecting current work:
 - [03-02]: Delete-before-insert pattern for LanceDB re-indexing -- removes old embeddings by repoId before adding new
 - [Phase 04-mcp-query-tools]: EMBED_MODEL shared constant eliminates string duplication between indexing and query layers
 - [Phase 04-mcp-query-tools]: vectorSearch casts table.search() result to lancedb.VectorQuery for distanceType access
+- [04-02]: Three separate graph.query() calls per node label instead of UNION — FalkorDB UNION across node types not guaranteed; merged client-side
+- [04-02]: Promise.allSettled for per-label queries — one label missing does not fail others
+- [04-02]: escapeSql() helper doubles single quotes in LanceDB WHERE values to prevent SQL injection in scalar scan
 
 ### Pending Todos
 
@@ -107,5 +111,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-09
-Stopped at: Completed 04-mcp-query-tools/04-01-PLAN.md (EMBED_MODEL constant, SearchResult type, vectorSearch function -- Phase 4 Plan 1 complete)
+Stopped at: Completed 04-mcp-query-tools/04-02-PLAN.md (SymbolResult type, lookupSymbol, getCallNeighbors, fetchSourceText -- Phase 4 Plan 2 complete)
 Resume file: None
