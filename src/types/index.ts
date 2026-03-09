@@ -147,6 +147,31 @@ export interface SymbolResult {
   callees: Array<{ name: string; filePath: string; repoId: string }>;
 }
 
+/** A code chunk included in a context bundle (seed or related) */
+export interface ContextChunk {
+  filePath: string;
+  startLine: number;
+  endLine: number;
+  language: string;
+  repoId: string;
+  symbolName: string;
+  sourceText: string;
+  /** For 'related' chunks: describes the relationship (e.g. 'caller of handleRequest') */
+  relationNote?: string;
+}
+
+/** Output type for the Context Bundle tool (get_context_bundle) */
+export interface ContextBundle {
+  /** Seed matches from vector search — ordered by similarity score descending */
+  relevantCode: ContextChunk[];
+  /** Call-graph expansions of seed matches */
+  relatedCode: ContextChunk[];
+  /** Total characters in the bundle (for caller awareness) */
+  totalChars: number;
+  /** Whether the token budget was reached before all candidates were included */
+  budgetReached: boolean;
+}
+
 /** A single code match returned by the Semantic Search tool (search_code) */
 export interface SearchResult {
   /** Full source text of the matched symbol */
