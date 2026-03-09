@@ -193,7 +193,7 @@ export function registerContextBundle(server: McpServer, deps: QueryDeps): void 
     {
       title: 'Context Bundle',
       description:
-        'Assemble a pre-built context package for a development task. Returns the most relevant code from indexed repositories, including call-graph neighbors, formatted for AI consumption.',
+        'Assemble a pre-built context package for a development task. Returns the most relevant code, including call-graph neighbors, formatted for AI consumption. IMPORTANT: When the user mentions a specific repository, call list_repos first to get its UUID and pass it as repoId to scope results.',
       inputSchema: z.object({
         task: z.string().describe('Description of the development task or question requiring context'),
         max_tokens: z

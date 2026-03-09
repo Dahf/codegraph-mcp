@@ -3,6 +3,7 @@ import type { QueryDeps } from './query/vector.js';
 import { registerSearchCode } from './tools/searchCode.js';
 import { registerLookupSymbol } from './tools/lookupSymbol.js';
 import { registerContextBundle } from './tools/contextBundle.js';
+import { registerListRepos } from './tools/listRepos.js';
 
 /**
  * Factory function that creates and returns a new McpServer instance.
@@ -16,6 +17,7 @@ export function createMcpServer(deps: QueryDeps): McpServer {
     version: '1.0.0',
   });
 
+  registerListRepos(server, deps);
   registerSearchCode(server, deps);
   registerLookupSymbol(server, deps);
   registerContextBundle(server, deps);

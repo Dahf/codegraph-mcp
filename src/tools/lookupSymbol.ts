@@ -15,7 +15,7 @@ export function registerLookupSymbol(server: McpServer, deps: QueryDeps): void {
     {
       title: 'Symbol Lookup',
       description:
-        'Find a function, class, or type definition by name. Returns source code, file location, and direct callers/callees from the call graph.',
+        'Find a function, class, or type definition by name. Returns source code, file location, and direct callers/callees from the call graph. IMPORTANT: When the user mentions a specific repository, call list_repos first to get its UUID and pass it as repoId.',
       inputSchema: z.object({
         name: z.string().describe('Symbol name to look up (function, class, or type name)'),
         repoId: z

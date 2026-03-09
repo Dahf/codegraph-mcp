@@ -15,7 +15,7 @@ export function registerSearchCode(server: McpServer, deps: QueryDeps): void {
     {
       title: 'Semantic Code Search',
       description:
-        'Search code by natural language query across all indexed repositories. Returns ranked code snippets with file location and similarity score.',
+        'Search code by natural language query. Returns ranked code snippets with file location and similarity score. IMPORTANT: When the user mentions a specific repository, call list_repos first to get its UUID and pass it as repoId to avoid searching unrelated repos.',
       inputSchema: z.object({
         query: z.string().describe('Natural language description of code to find'),
         k: z.number().int().positive().optional().describe('Max results to return (default: 10)'),
