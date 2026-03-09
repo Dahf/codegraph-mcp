@@ -19,6 +19,7 @@ import { LANGUAGE_REGISTRY, PARSERS } from './parsers/registry.js';
 import { writeGraph } from './graph-writer.js';
 import { extractChunks } from './chunker.js';
 import { embedAndStore } from './embedder.js';
+import { EMBED_MODEL } from '../constants.js';
 
 /**
  * Walk all nodes of a tree and collect call_expression callee names.
@@ -215,7 +216,7 @@ export class IndexPipeline {
               repo.id,
               this.ollamaAdapter,
               this.lanceAdapter,
-              { model: 'nomic-embed-text', concurrency: 5 },
+              { model: EMBED_MODEL, concurrency: 5 },
             );
             totalStored += stored;
             totalFailed += failed;
