@@ -1,20 +1,22 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import type { QueryDeps } from './query/vector.js';
+import { registerSearchCode } from './tools/searchCode.js';
+import { registerLookupSymbol } from './tools/lookupSymbol.js';
 
 /**
  * Factory function that creates and returns a new McpServer instance.
  *
- * Each MCP session gets its own server instance. Tools are registered
- * on this server — subsequent plans (Phase 2+) will add real tools here.
+ * Each MCP session gets its own server instance. Both search_code and
+ * lookup_symbol tools are registered using the provided adapter dependencies.
  */
-export function createMcpServer(): McpServer {
+export function createMcpServer(deps: QueryDeps): McpServer {
   const server = new McpServer({
     name: 'codegraph-mcp',
     version: '1.0.0',
   });
 
-  // Tools will be registered here in future plans:
-  // Phase 2: search_symbols, lookup_symbol, find_callers
-  // Phase 3: semantic_search, get_context_bundle
+  registerSearchCode(server, deps);
+  registerLookupSymbol(server, deps);
 
   return server;
 }

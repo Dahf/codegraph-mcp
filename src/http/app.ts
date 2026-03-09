@@ -96,7 +96,7 @@ export function createApp(
         }
       };
 
-      const server = createMcpServer();
+      const server = createMcpServer({ lanceAdapter, falkorAdapter, ollamaAdapter, config });
       await server.connect(transport);
       await transport.handleRequest(req, res, req.body);
       return;
