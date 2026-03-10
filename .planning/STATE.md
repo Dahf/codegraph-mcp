@@ -2,13 +2,13 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: unknown
-last_updated: "2026-03-10T09:48:49.370Z"
+status: complete
+last_updated: "2026-03-10T11:13:00.000Z"
 progress:
   total_phases: 5
-  completed_phases: 4
+  completed_phases: 5
   total_plans: 17
-  completed_plans: 15
+  completed_plans: 17
 ---
 
 # Project State
@@ -18,16 +18,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-02)
 
 **Core value:** AI development tools get instant, accurate cross-codebase context — so developers never have to manually explain their project structure again.
-**Current focus:** Phase 7 In Progress - Plan 07-03 complete (graph-writer per-file functions, embedder queue adaptation)
+**Current focus:** Phase 7 Complete - all plans done (streaming pipeline refactor, OOM fixes complete)
 
 ## Current Position
 
-Phase: 7 of 7 (Fix OOM Memory Problem) -- In Progress
-Plan: 3 of 4 in current phase (3 complete, 1 remaining)
-Status: Phase 7 In Progress
-Last activity: 2026-03-10 — Plan 07-03 complete (graph-writer per-file functions: clearGraph, createGraphIndexes, writeFileSymbols, writeCallEdges; embedder queue functions: embedSingleChunk, storeEmbeddingRows)
+Phase: 7 of 7 (Fix OOM Memory Problem) -- Complete
+Plan: 4 of 4 in current phase (all complete)
+Status: All Phases Complete
+Last activity: 2026-03-10 — Plan 07-04 complete (streaming two-pass pipeline, p-queue backpressure, checkpoint resume, deprecated bulk functions removed)
 
-Progress: [█████████░] 92%
+Progress: [██████████] 100%
 
 ## Performance Metrics
 
@@ -58,6 +58,7 @@ Progress: [█████████░] 92%
 | Phase 07-fix-oom-memory-problem-when-indexing-very-large-repos P07-02 | 6 | 2 tasks | 6 files |
 | Phase 07 P01 | 8 | 2 tasks | 8 files |
 | Phase 07-fix-oom-memory-problem-when-indexing-very-large-repos P07-03 | 5 | 2 tasks | 4 files |
+| Phase 07 P04 | 12 | 3 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -114,6 +115,9 @@ Recent decisions affecting current work:
 - [Phase 07]: walkRepo uses opendir() for pull-based directory iteration instead of readdir() -- avoids loading full directory listing into memory
 - [Phase 07-03]: New graph functions accept Graph directly (not FalkorDBAdapter) — cleaner call site in streaming pipeline
 - [Phase 07-03]: embedSingleChunk returns null on error (never throws) — required for safe p-queue task semantics
+- [Phase 07-04]: Pass 2 call-site resolution uses single UNWIND query per file (one FalkorDB round-trip per file, not per call site)
+- [Phase 07-04]: Source text nulled after extractChunks — GC can reclaim before next file is loaded
+- [Phase 07-04]: IndexProgressEmitter is optional constructor param — fresh emitter per request prevents cross-request event leakage
 
 ### Roadmap Evolution
 
@@ -132,5 +136,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-10
-Stopped at: Completed 07-fix-oom-memory-problem-when-indexing-very-large-repos/07-03-PLAN.md (graph-writer per-file functions, embedder queue adaptation)
+Stopped at: Completed 07-fix-oom-memory-problem-when-indexing-very-large-repos/07-04-PLAN.md (streaming two-pass pipeline, p-queue backpressure, checkpoint resume, deprecated bulk functions removed)
 Resume file: None
