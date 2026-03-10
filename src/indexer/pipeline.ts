@@ -1,5 +1,6 @@
 import path from 'node:path';
 import { rm } from 'node:fs/promises';
+import PQueue from 'p-queue';
 import type Parser from 'tree-sitter';
 import type { FalkorDBAdapter } from '../adapters/falkordb.js';
 import type { OllamaAdapter } from '../adapters/ollama.js';
@@ -8,17 +9,16 @@ import type {
   Config,
   RepoConfig,
   IndexResult,
-  ExtractedSymbols,
-  SourceFile,
-  FunctionNode,
-  CallEdge,
 } from '../types/index.js';
 import { cloneRepo } from './cloner.js';
 import { walkRepo, readSourceFile } from './walker.js';
 import { LANGUAGE_REGISTRY, PARSERS } from './parsers/registry.js';
-import { writeGraph } from './graph-writer.js';
+import { writeFileSymbols, writeCallEdges, clearGraph, createGraphIndexes } from './graph-writer.js';
 import { extractChunks } from './chunker.js';
-import { embedAndStore } from './embedder.js';
+import { embedSingleChunk, storeEmbeddingRows } from './embedder.js';
+import { readCheckpoint, writeCheckpoint, clearCheckpoint } from './checkpoint.js';
+import { MemoryMonitor } from './memory-monitor.js';
+import type { IndexProgressEmitter } from './progress.js';
 import { EMBED_MODEL } from '../constants.js';
 
 /**
@@ -67,11 +67,17 @@ function extractCallSiteNames(node: Parser.SyntaxNode): string[] {
 }
 
 /**
- * IndexPipeline orchestrates the four stages of indexing a single repository:
- *   1. clone  — git clone to local disk
- *   2. walk   — discover source files
- *   3. parse  — extract symbols from each file
- *   4. write  — upsert symbols and edges into FalkorDB
+ * IndexPipeline orchestrates the stages of indexing a single repository using
+ * a streaming two-pass architecture that processes one file at a time.
+ *
+ * Pass 1: Stream files → parse → write symbols to FalkorDB → queue embeddings
+ * Pass 2: Stream files again → extract call sites → resolve via FalkorDB → write CALLS edges
+ *
+ * Memory is bounded via:
+ * - Streaming file walker (no full directory listing in memory)
+ * - p-queue for concurrent embeddings with backpressure via onSizeLessThan
+ * - MemoryMonitor that pauses processing when heap exceeds threshold
+ * - Checkpoint-based resume after crashes
  *
  * One pipeline instance per index request. Cloned repo is always removed in finally.
  */
@@ -81,9 +87,11 @@ export class IndexPipeline {
     private readonly ollamaAdapter: OllamaAdapter,
     private readonly lanceAdapter: LanceDBAdapter,
     private readonly config: Config,
+    private readonly progressEmitter?: IndexProgressEmitter,
   ) {}
 
-  async run(repo: RepoConfig): Promise<IndexResult> {
+  async run(repo: RepoConfig, options?: { resume?: boolean }): Promise<IndexResult> {
+    const resume = options?.resume ?? false;
     const destPath = path.join(this.config.dataDir, 'repos', repo.id);
     const result: IndexResult = {
       repoId: repo.id,
@@ -96,146 +104,227 @@ export class IndexPipeline {
     try {
       // Stage 1: Clone
       // Clone errors propagate up — the route handler catches and returns HTTP 400/500.
-      // No graph writes happen before a successful clone.
       await cloneRepo(repo.url, repo.branch, repo.id, this.config.dataDir);
 
-      // Stage 2: Walk — async generator, yielding files one at a time
-      const fileGen = walkRepo(destPath, {
-        maxFileSizeBytes: this.config.indexer.maxFileSizeBytes,
-      });
+      // Stage 2: Setup
+      const graph = this.falkorAdapter.selectGraph('codegraph-' + repo.id);
 
-      // Stage 3: Parse — collect all symbols for two-pass call resolution
-      // We also capture the parsed tree for call-site extraction after symbols are done.
-      const allSymbols: Array<{ file: SourceFile; symbols: ExtractedSymbols }> = [];
-      const allTrees: Array<{ file: SourceFile; tree: Parser.Tree }> = [];
-      const sourceTexts = new Map<string, string>();
+      if (!resume) {
+        // Fresh run: clear all existing data before writing new data (Pitfall 1)
+        await clearGraph(graph);
+        await clearCheckpoint(graph, repo.id);
+      }
 
-      for await (const file of fileGen) {
+      await createGraphIndexes(graph);
+      const existingCheckpoint = await readCheckpoint(graph, repo.id);
+
+      const memoryMonitor = new MemoryMonitor(this.config.indexer.memoryThresholdRatio);
+      memoryMonitor.start();
+
+      const embeddingQueue = new PQueue({ concurrency: this.config.indexer.embeddingConcurrency });
+      const rows: Record<string, unknown>[] = [];
+      const processedFiles = new Set<string>(existingCheckpoint);
+
+      // Stage 3 — Pass 1: Stream files, parse, write symbols, queue embeddings
+      for await (const file of walkRepo(destPath, { maxFileSizeBytes: this.config.indexer.maxFileSizeBytes })) {
+        // Skip files already indexed (checkpoint resume)
+        if (existingCheckpoint.has(file.relativePath)) {
+          continue;
+        }
+
+        // Backpressure safety valve — pause if heap is under pressure
+        await memoryMonitor.waitIfPaused();
+
+        let source: string | null;
         try {
-          const source = await readSourceFile(file.absolutePath);
-          if (source === null) {
-            result.failedFiles.push({ path: file.relativePath, error: 'Could not read file' });
+          source = await readSourceFile(file.absolutePath);
+        } catch {
+          source = null;
+        }
+
+        if (source === null) {
+          result.failedFiles.push({ path: file.relativePath, error: 'Could not read file' });
+          this.progressEmitter?.emit('file:skipped', {
+            repoId: repo.id,
+            filePath: file.relativePath,
+            reason: 'error',
+          });
+          continue;
+        }
+
+        try {
+          const langConfig = LANGUAGE_REGISTRY[path.extname(file.absolutePath).toLowerCase()];
+          if (!langConfig) {
+            // No parser for this extension — skip silently
+            source = null;
             continue;
           }
-
-          sourceTexts.set(file.relativePath, source);
-
-          const langConfig = LANGUAGE_REGISTRY[path.extname(file.absolutePath).toLowerCase()];
-          if (!langConfig) continue;
 
           const parser = PARSERS[langConfig.language];
           const tree = parser.parse(source);
           const symbols = langConfig.extractor(tree, source, file.relativePath);
 
-          allSymbols.push({ file, symbols });
-          allTrees.push({ file, tree });
+          // Extract call site names from AST
+          const callSiteNames = extractCallSiteNames(tree.rootNode);
+          symbols.callSites = callSiteNames.map((calleeName) => ({
+            calleeName,
+            callerFilePath: file.relativePath,
+          }));
 
+          // Write symbols to FalkorDB (CRITICAL ordering: parse → write → extract chunks → null source)
+          const edgesFromFile = await writeFileSymbols(graph, repo.id, file, symbols);
+          result.edgesCreated += edgesFromFile;
+
+          // Extract chunks for embedding (needs source text)
+          const chunks = extractChunks(symbols, source, file.relativePath, file.language);
+
+          // Queue embedding for each chunk with backpressure
+          if (chunks.length > 0) {
+            await embeddingQueue.onSizeLessThan(this.config.indexer.embeddingQueueSize);
+            for (const chunk of chunks) {
+              void embeddingQueue.add(async () => {
+                const row = await embedSingleChunk(chunk, repo.id, this.ollamaAdapter, EMBED_MODEL);
+                if (row) rows.push(row);
+              });
+            }
+            this.progressEmitter?.emit('embedding:queued', {
+              repoId: repo.id,
+              chunks: chunks.length,
+            });
+          }
+
+          // Count symbols extracted
           result.symbolsExtracted +=
             symbols.functions.length + symbols.classes.length +
             symbols.types.length + symbols.imports.length;
+
+          // Null out source text reference — allow GC to reclaim memory
+          source = null;
+
           result.filesProcessed++;
+          processedFiles.add(file.relativePath);
+
+          // Persist checkpoint after each file
+          await writeCheckpoint(graph, repo.id, processedFiles);
+
+          this.progressEmitter?.emit('file:parsed', {
+            repoId: repo.id,
+            filePath: file.relativePath,
+            symbolsFound: symbols.functions.length + symbols.classes.length + symbols.types.length,
+          });
+          this.progressEmitter?.emit('checkpoint:saved', {
+            repoId: repo.id,
+            filesProcessed: result.filesProcessed,
+          });
         } catch (err) {
           const msg = err instanceof Error ? err.message : String(err);
           console.error(`[pipeline] Parse error: ${file.relativePath}: ${msg}`);
           result.failedFiles.push({ path: file.relativePath, error: msg });
+          source = null;
         }
       }
 
-      // Stage 3b: Extract call sites via generic tree-walk
-      // Populate callSites on each file's symbols object
-      for (let i = 0; i < allSymbols.length; i++) {
-        const treeEntry = allTrees[i];
-        if (!treeEntry) continue;
-        const calleeNames = extractCallSiteNames(treeEntry.tree.rootNode);
-        allSymbols[i]!.symbols.callSites = calleeNames.map((calleeName) => ({
-          calleeName,
-          callerFilePath: allSymbols[i]!.file.relativePath,
-        }));
-      }
+      this.progressEmitter?.emit('pass1:complete', {
+        repoId: repo.id,
+        filesProcessed: result.filesProcessed,
+        symbolsExtracted: result.symbolsExtracted,
+      });
 
-      // Free ASTs — no longer needed after call-site extraction
-      allTrees.length = 0;
+      // Stage 4 — Drain embedding queue
+      await embeddingQueue.onIdle();
+      await storeEmbeddingRows(rows, repo.id, this.lanceAdapter);
+      result.embeddingsStored = rows.length;
+      result.embeddingsFailed = 0;
+      rows.length = 0;
 
-      // Stage 4: Two-pass call-graph resolution and FalkorDB write
-
-      // Pass 1: Build symbol map from all extracted functions
-      const symbolMap = new Map<string, FunctionNode>();
-      for (const { symbols } of allSymbols) {
-        for (const fn of symbols.functions) {
-          const qualKey = `${fn.filePath}::${fn.name}`;
-          symbolMap.set(qualKey, fn);
-          // Bare name fallback — first-match wins, no overwrite
-          if (!symbolMap.has(fn.name)) symbolMap.set(fn.name, fn);
+      // Stage 5 — Pass 2: Stream files again, extract call sites, resolve via FalkorDB, write CALLS edges
+      for await (const file of walkRepo(destPath, { maxFileSizeBytes: this.config.indexer.maxFileSizeBytes })) {
+        let source: string | null;
+        try {
+          source = await readSourceFile(file.absolutePath);
+        } catch {
+          source = null;
         }
-      }
+        if (source === null) continue;
 
-      // Pass 2: Resolve call sites to typed CallEdge objects
-      const callEdges: CallEdge[] = [];
-      for (const { symbols } of allSymbols) {
-        for (const callSite of symbols.callSites) {
-          const sameFileKey = `${callSite.callerFilePath}::${callSite.calleeName}`;
-          const callee = symbolMap.get(sameFileKey) ?? symbolMap.get(callSite.calleeName);
-          if (!callee) continue; // drop silently — callee not in this repo
-
-          const crossFile = callee.filePath !== callSite.callerFilePath;
-
-          // Find the first function in the same file as the call site — best-effort
-          const caller = [...symbolMap.values()].find(
-            (fn) => fn.filePath === callSite.callerFilePath,
-          );
-          if (!caller) continue;
-
-          callEdges.push({
-            callerName: caller.name,
-            callerFilePath: callSite.callerFilePath,
-            calleeName: callee.name,
-            calleeFilePath: callee.filePath,
-            crossFile,
-          });
-        }
-      }
-
-      // Write symbols and edges to FalkorDB
-      result.edgesCreated = await writeGraph(repo.id, allSymbols, callEdges, this.falkorAdapter);
-
-      // Stage 5: Embed and store vectors in LanceDB
-      // Process in batches to avoid OOM on large repos
-      try {
-        const EMBED_BATCH_SIZE = 50;
-        let totalStored = 0;
-        let totalFailed = 0;
-
-        for (let i = 0; i < allSymbols.length; i += EMBED_BATCH_SIZE) {
-          const batch = allSymbols.slice(i, i + EMBED_BATCH_SIZE);
-          const chunks = batch.flatMap(({ file, symbols }) => {
-            const source = sourceTexts.get(file.relativePath) ?? '';
-            return extractChunks(symbols, source, file.relativePath, file.language);
-          });
-
-          if (chunks.length > 0) {
-            const { stored, failed } = await embedAndStore(
-              chunks,
-              repo.id,
-              this.ollamaAdapter,
-              this.lanceAdapter,
-              { model: EMBED_MODEL, concurrency: 5 },
-            );
-            totalStored += stored;
-            totalFailed += failed;
+        try {
+          const langConfig = LANGUAGE_REGISTRY[path.extname(file.absolutePath).toLowerCase()];
+          if (!langConfig) {
+            source = null;
+            continue;
           }
+
+          const parser = PARSERS[langConfig.language];
+          const tree = parser.parse(source);
+          const callSiteNames = extractCallSiteNames(tree.rootNode);
+          source = null; // release early
+
+          if (callSiteNames.length === 0) continue;
+
+          // Batch all call site names for this file into one UNWIND query (single round trip)
+          const uniqueNames = [...new Set(callSiteNames)];
+          const queryResult = await graph.query(
+            `UNWIND $names AS calleeName
+             OPTIONAL MATCH (sf:Function {name: calleeName, filePath: $callerFilePath, repoId: $repoId})
+             OPTIONAL MATCH (bf:Function {name: calleeName, repoId: $repoId})
+             RETURN calleeName,
+                    sf.name AS sameFileName, sf.filePath AS sameFilePath,
+                    bf.name AS bareName, bf.filePath AS bareFilePath`,
+            { params: { names: uniqueNames, callerFilePath: file.relativePath, repoId: repo.id } },
+          );
+
+          if (!queryResult.data || queryResult.data.length === 0) continue;
+
+          // Find the caller function in this file (best-effort: first function found)
+          const callerResult = await graph.query(
+            'MATCH (f:Function {filePath: $callerFilePath, repoId: $repoId}) RETURN f.name LIMIT 1',
+            { params: { callerFilePath: file.relativePath, repoId: repo.id } },
+          );
+
+          const callerRow = callerResult.data?.[0] as Record<string, unknown> | undefined;
+          const callerName = callerRow?.['f.name'] as string | undefined;
+          if (!callerName) continue;
+
+          // Build call edges from resolved call sites
+          const fileCallEdges = [];
+          for (const row of queryResult.data as Record<string, unknown>[]) {
+            const sameFilePath = row['sameFilePath'] as string | undefined;
+            const bareFilePath = row['bareFilePath'] as string | undefined;
+
+            const calleeName = row['sameFileName'] ?? row['bareName'];
+            const calleeFilePath = sameFilePath ?? bareFilePath;
+
+            if (!calleeName || !calleeFilePath) continue;
+
+            fileCallEdges.push({
+              callerName,
+              callerFilePath: file.relativePath,
+              calleeName: calleeName as string,
+              calleeFilePath: calleeFilePath as string,
+              crossFile: calleeFilePath !== file.relativePath,
+            });
+          }
+
+          if (fileCallEdges.length > 0) {
+            const written = await writeCallEdges(graph, repo.id, fileCallEdges);
+            result.edgesCreated += written;
+          }
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          console.error(`[pipeline] Pass 2 error: ${file.relativePath}: ${msg}`);
+          source = null;
         }
-
-        // Free source texts — no longer needed
-        sourceTexts.clear();
-
-        result.embeddingsStored = totalStored;
-        result.embeddingsFailed = totalFailed;
-      } catch (err) {
-        console.error(`[pipeline] Embedding stage failed: ${err}`);
-        result.embeddingsStored = 0;
-        result.embeddingsFailed = -1; // signals total failure
       }
 
+      // Stage 6 — Cleanup
+      memoryMonitor.stop();
+      await clearCheckpoint(graph, repo.id);
+
+      this.progressEmitter?.emit('done', {
+        repoId: repo.id,
+        filesProcessed: result.filesProcessed,
+        symbolsExtracted: result.symbolsExtracted,
+      });
     } finally {
       // Always clean up — disk usage grows unbounded otherwise
       await rm(destPath, { recursive: true, force: true }).catch(() => {});
