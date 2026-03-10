@@ -32,6 +32,17 @@ export const ConfigSchema = z.object({
     host: z.string().default('http://localhost:11434'),
   }).default({ host: 'http://localhost:11434' }),
   repos: z.array(RepoSchema).default([]),
+  indexer: z.object({
+    maxFileSizeBytes: z.number().int().positive().default(1_048_576),
+    embeddingConcurrency: z.number().int().min(1).max(20).default(5),
+    memoryThresholdRatio: z.number().min(0.5).max(0.95).default(0.80),
+    embeddingQueueSize: z.number().int().positive().default(500),
+  }).default({
+    maxFileSizeBytes: 1_048_576,
+    embeddingConcurrency: 5,
+    memoryThresholdRatio: 0.80,
+    embeddingQueueSize: 500,
+  }),
 });
 
 export type Config = z.infer<typeof ConfigSchema>;
