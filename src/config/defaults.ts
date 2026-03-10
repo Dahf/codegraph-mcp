@@ -14,4 +14,10 @@ export const defaultConfig: Config = {
     host: 'http://localhost:11434',
   },
   repos: [],
+  indexer: {
+    maxFileSizeBytes: 1_048_576,
+    embeddingConcurrency: 5,
+    memoryThresholdRatio: 0.80,
+    embeddingQueueSize: 500,
+  },
 };

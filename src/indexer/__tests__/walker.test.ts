@@ -53,13 +53,13 @@ describe('walkRepo (async generator)', () => {
   });
 
   it('should skip files larger than maxFileSizeBytes', async () => {
-    // Write a small file (should be yielded)
-    await writeFile(path.join(tmpDir, 'small.ts'), 'const x = 1;'); // ~13 bytes
-    // Write a "large" file content (should be skipped if maxFileSizeBytes=10)
-    await writeFile(path.join(tmpDir, 'large.ts'), 'const bigFile = "this is definitely larger than 10 bytes";');
+    // Write a small file (7 bytes — below threshold of 50)
+    await writeFile(path.join(tmpDir, 'small.ts'), 'x = 1;');
+    // Write a large file (should be skipped if maxFileSizeBytes=50)
+    await writeFile(path.join(tmpDir, 'large.ts'), 'const bigFile = "this is definitely larger than fifty bytes total here";');
 
     const results = [];
-    for await (const file of walkRepo(tmpDir, { maxFileSizeBytes: 10 })) {
+    for await (const file of walkRepo(tmpDir, { maxFileSizeBytes: 50 })) {
       results.push(file);
     }
 

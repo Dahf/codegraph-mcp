@@ -99,8 +99,10 @@ export class IndexPipeline {
       // No graph writes happen before a successful clone.
       await cloneRepo(repo.url, repo.branch, repo.id, this.config.dataDir);
 
-      // Stage 2: Walk
-      const files = await walkRepo(destPath);
+      // Stage 2: Walk — async generator, yielding files one at a time
+      const fileGen = walkRepo(destPath, {
+        maxFileSizeBytes: this.config.indexer.maxFileSizeBytes,
+      });
 
       // Stage 3: Parse — collect all symbols for two-pass call resolution
       // We also capture the parsed tree for call-site extraction after symbols are done.
@@ -108,7 +110,7 @@ export class IndexPipeline {
       const allTrees: Array<{ file: SourceFile; tree: Parser.Tree }> = [];
       const sourceTexts = new Map<string, string>();
 
-      for (const file of files) {
+      for await (const file of fileGen) {
         try {
           const source = await readSourceFile(file.absolutePath);
           if (source === null) {

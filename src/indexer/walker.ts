@@ -1,4 +1,4 @@
-import { readdir, readFile } from 'node:fs/promises';
+import { opendir, readFile, stat } from 'node:fs/promises';
 import path from 'node:path';
 import type { SourceFile } from '../types/index.js';
 import { LANGUAGE_REGISTRY } from './parsers/registry.js';
@@ -13,20 +13,27 @@ const NOISE_DIRS = new Set([
 const NOISE_SUFFIXES = ['.min.js', '.d.ts'];
 
 /**
- * Recursively walk repoRoot and return all source files whose extension
+ * Recursively walk repoRoot and yield source files whose extension
  * appears in LANGUAGE_REGISTRY, excluding noise paths.
+ *
+ * Uses opendir() for pull-based directory iteration (avoids loading entire
+ * directory listing into memory at once).
+ *
+ * When options.maxFileSizeBytes is provided, files exceeding that size are
+ * skipped with a warning log.
  */
-export async function walkRepo(repoRoot: string): Promise<SourceFile[]> {
-  const results: SourceFile[] = [];
-
-  async function walk(dir: string): Promise<void> {
-    const entries = await readdir(dir, { withFileTypes: true });
-    for (const entry of entries) {
+export async function* walkRepo(
+  repoRoot: string,
+  options?: { maxFileSizeBytes?: number },
+): AsyncGenerator<SourceFile> {
+  async function* walk(dir: string): AsyncGenerator<SourceFile> {
+    const d = await opendir(dir);
+    for await (const entry of d) {
       const fullPath = path.join(dir, entry.name);
 
       if (entry.isDirectory()) {
         if (NOISE_DIRS.has(entry.name)) continue;
-        await walk(fullPath);
+        yield* walk(fullPath);
         continue;
       }
 
@@ -39,16 +46,25 @@ export async function walkRepo(repoRoot: string): Promise<SourceFile[]> {
       const langConfig = LANGUAGE_REGISTRY[ext];
       if (!langConfig) continue;
 
-      results.push({
+      // File-size filtering
+      if (options?.maxFileSizeBytes !== undefined) {
+        const fileStat = await stat(fullPath);
+        if (fileStat.size > options.maxFileSizeBytes) {
+          const relativePath = path.relative(repoRoot, fullPath);
+          console.warn(`[walker] Skipping large file: ${relativePath} (${fileStat.size} bytes)`);
+          continue;
+        }
+      }
+
+      yield {
         absolutePath: fullPath,
         relativePath: path.relative(repoRoot, fullPath),
         language: langConfig.language,
-      });
+      };
     }
   }
 
-  await walk(repoRoot);
-  return results;
+  yield* walk(repoRoot);
 }
 
 /**
