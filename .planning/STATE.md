@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-last_updated: "2026-03-10T09:47:38.996Z"
+last_updated: "2026-03-10T09:48:49.370Z"
 progress:
   total_phases: 5
   completed_phases: 4
@@ -18,16 +18,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-02)
 
 **Core value:** AI development tools get instant, accurate cross-codebase context — so developers never have to manually explain their project structure again.
-**Current focus:** Phase 4 Complete - All 4 plans done; ready for Phase 5
+**Current focus:** Phase 7 In Progress - Plan 07-01 complete (config schema + walker async generator + p-queue install)
 
 ## Current Position
 
-Phase: 4 of 6 (MCP Query Tools) -- COMPLETE
-Plan: 4 of 4 in current phase (all complete)
-Status: Phase 4 Complete
-Last activity: 2026-03-09 — Plan 04-04 complete (get_context_bundle tool -- all three MCP tools live on every session)
+Phase: 7 of 7 (Fix OOM Memory Problem) -- In Progress
+Plan: 1 of 4 in current phase (1 complete, 3 remaining)
+Status: Phase 7 In Progress
+Last activity: 2026-03-10 — Plan 07-01 complete (config schema indexer fields, walkRepo async generator, file-size filtering, p-queue install)
 
-Progress: [█████████░] 77%
+Progress: [█████████░] 88%
 
 ## Performance Metrics
 
@@ -56,6 +56,7 @@ Progress: [█████████░] 77%
 | Phase 04-mcp-query-tools P03 | 2 | 2 tasks | 4 files |
 | Phase 04-mcp-query-tools P04 | 3 | 3 tasks | 3 files |
 | Phase 07-fix-oom-memory-problem-when-indexing-very-large-repos P07-02 | 6 | 2 tasks | 6 files |
+| Phase 07 P01 | 8 | 2 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -108,6 +109,8 @@ Recent decisions affecting current work:
 - [Phase 07-02]: FalkorDB MERGE pattern for checkpoint upsert -- safe repeated writes without duplicates
 - [Phase 07-02]: MemoryMonitor timer.unref() prevents process/test-runner hang (Pitfall 5)
 - [Phase 07-02]: IndexProgressEmitter uses typed EventEmitter subclass -- zero deps, full type safety at call sites
+- [Phase 07]: Zod v4 requires explicit full default object for nested objects -- .default({}) stores literal empty object, not schema-computed defaults
+- [Phase 07]: walkRepo uses opendir() for pull-based directory iteration instead of readdir() -- avoids loading full directory listing into memory
 
 ### Roadmap Evolution
 
@@ -125,6 +128,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-09
-Stopped at: Completed 04-mcp-query-tools/04-04-PLAN.md (get_context_bundle tool with token budget + call-graph expansion -- Phase 4 all 4 plans complete)
+Last session: 2026-03-10
+Stopped at: Completed 07-fix-oom-memory-problem-when-indexing-very-large-repos/07-01-PLAN.md (config schema indexer fields, walkRepo async generator with file-size filtering, p-queue install)
 Resume file: None
