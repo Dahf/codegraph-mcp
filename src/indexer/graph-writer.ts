@@ -9,7 +9,6 @@
  * are removed via MATCH (n) DETACH DELETE n before writing fresh data.
  */
 import type { Graph } from '@falkordb/graph';
-import type { FalkorDBAdapter } from '../adapters/falkordb.js';
 import type {
   ExtractedSymbols,
   CallEdge,
@@ -259,39 +258,3 @@ export async function writeCallEdges(
   return callEdges.length;
 }
 
-// ── Backward-compatible bulk function ────────────────────────────────────────
-
-/**
- * Write all symbols and edges for one repository to FalkorDB.
- *
- * @deprecated Use clearGraph() + createGraphIndexes() + writeFileSymbols() +
- *   writeCallEdges() from the streaming pipeline (07-04). This bulk function
- *   will be removed after the pipeline refactor is complete.
- *
- * @param repoId     Repo identifier — used to name the graph and as a node property
- * @param allSymbols Array of per-file symbol bundles from the parse stage
- * @param callEdges  Resolved call edges from the two-pass resolution stage
- * @param falkorAdapter  Connected FalkorDB adapter
- * @returns Total number of edges created (CONTAINS + HAS_METHOD + CALLS)
- */
-export async function writeGraph(
-  repoId: string,
-  allSymbols: FileSymbols[],
-  callEdges: CallEdge[],
-  falkorAdapter: FalkorDBAdapter,
-): Promise<number> {
-  const graph = falkorAdapter.selectGraph('codegraph-' + repoId);
-
-  await clearGraph(graph, repoId);
-  await createGraphIndexes(graph);
-
-  let edgesCreated = 0;
-
-  for (const { file, symbols } of allSymbols) {
-    edgesCreated += await writeFileSymbols(graph, repoId, file, symbols);
-  }
-
-  edgesCreated += await writeCallEdges(graph, repoId, callEdges);
-
-  return edgesCreated;
-}

@@ -10,7 +10,6 @@ import {
   createGraphIndexes,
   writeFileSymbols,
   writeCallEdges,
-  writeGraph,
 } from '../graph-writer.js';
 
 // Minimal mock for the Graph object
@@ -258,22 +257,3 @@ describe('writeCallEdges', () => {
   });
 });
 
-// ── writeGraph (backward compat) ──────────────────────────────────────────────
-
-describe('writeGraph (backward compat)', () => {
-  it('still works end-to-end with mocked adapter', async () => {
-    const graph = makeMockGraph();
-    const falkorAdapter = {
-      selectGraph: vi.fn(() => graph),
-    } as unknown as import('../../adapters/falkordb.js').FalkorDBAdapter;
-
-    const result = await writeGraph(
-      'repo1',
-      [{ file: makeSourceFile(), symbols: makeSymbols() }],
-      [],
-      falkorAdapter,
-    );
-    expect(typeof result).toBe('number');
-    expect(falkorAdapter.selectGraph).toHaveBeenCalledWith('codegraph-repo1');
-  });
-});

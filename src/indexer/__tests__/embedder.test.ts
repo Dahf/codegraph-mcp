@@ -9,7 +9,6 @@ import type { CodeChunk } from '../chunker.js';
 import {
   embedSingleChunk,
   storeEmbeddingRows,
-  embedAndStore,
 } from '../embedder.js';
 
 function makeChunk(overrides: Partial<CodeChunk> = {}): CodeChunk {
@@ -130,30 +129,3 @@ describe('storeEmbeddingRows', () => {
   });
 });
 
-// ── embedAndStore (backward compat) ──────────────────────────────────────────
-
-describe('embedAndStore (backward compat)', () => {
-  it('returns stored/failed counts for successful batch', async () => {
-    const chunks = [makeChunk({ symbolName: 'fn1' }), makeChunk({ symbolName: 'fn2' })];
-    const ollama = makeMockOllama([0.1, 0.2]);
-    const lance = makeMockLance(false);
-    const result = await embedAndStore(chunks, 'repo1', ollama, lance as unknown as LanceDBAdapter, { model: 'mymodel', concurrency: 2 });
-    expect(result).toMatchObject({ stored: 2, failed: 0 });
-  });
-
-  it('handles partial failures gracefully', async () => {
-    const chunks = [makeChunk({ symbolName: 'fn1' }), makeChunk({ symbolName: 'fn2' })];
-    let callCount = 0;
-    const ollama = {
-      embed: vi.fn(async () => {
-        callCount++;
-        if (callCount === 1) throw new Error('fail');
-        return [[0.1, 0.2]];
-      }),
-    } as unknown as OllamaAdapter;
-    const lance = makeMockLance(false);
-    const result = await embedAndStore(chunks, 'repo1', ollama, lance as unknown as LanceDBAdapter, { model: 'mymodel', concurrency: 2 });
-    expect(result.stored).toBe(1);
-    expect(result.failed).toBe(1);
-  });
-});

@@ -1,4 +1,3 @@
-import pLimit from 'p-limit';
 import type { OllamaAdapter } from '../adapters/ollama.js';
 import type { LanceDBAdapter } from '../adapters/lancedb.js';
 import type { CodeChunk } from './chunker.js';
@@ -71,47 +70,3 @@ export async function storeEmbeddingRows(
   }
 }
 
-// ── Backward-compatible bulk function ────────────────────────────────────────
-
-/**
- * Orchestrates embedding generation and vector storage for code chunks.
- *
- * For each chunk, calls Ollama to generate an embedding vector, then stores
- * successful results in LanceDB. Uses p-limit for concurrency control.
- *
- * Re-indexing is handled via delete-before-insert: existing rows for the
- * given repoId are removed before new rows are added.
- *
- * Individual embedding failures are logged and skipped -- they do not abort
- * the batch. The caller receives counts of stored vs failed embeddings.
- *
- * @deprecated Use embedSingleChunk() + storeEmbeddingRows() from the streaming
- *   pipeline (07-04). This bulk function will be removed after the pipeline
- *   refactor is complete.
- */
-export async function embedAndStore(
-  chunks: CodeChunk[],
-  repoId: string,
-  ollamaAdapter: OllamaAdapter,
-  lanceAdapter: LanceDBAdapter,
-  options: { model: string; concurrency: number },
-): Promise<{ stored: number; failed: number }> {
-  const limit = pLimit(options.concurrency);
-
-  // Generate embeddings with concurrency control
-  const tasks = chunks.map((chunk) =>
-    limit(() => embedSingleChunk(chunk, repoId, ollamaAdapter, options.model)),
-  );
-
-  const results = await Promise.all(tasks);
-
-  // Collect successful rows
-  const rows: Record<string, unknown>[] = results.filter(
-    (r): r is Record<string, unknown> => r !== null,
-  );
-
-  // Store in LanceDB (skip if all embeddings failed)
-  await storeEmbeddingRows(rows, repoId, lanceAdapter);
-
-  return { stored: rows.length, failed: chunks.length - rows.length };
-}
