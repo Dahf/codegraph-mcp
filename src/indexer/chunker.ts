@@ -118,8 +118,10 @@ function splitIntoChunks(
       sourceText: lines.slice(offset, chunkEnd).join('\n'),
     });
 
-    offset = chunkEnd - OVERLAP_LINES;
-    if (offset >= endIdx) break;
+    const nextOffset = chunkEnd - OVERLAP_LINES;
+    // Ensure forward progress: if overlap would stall (remaining < OVERLAP), stop
+    if (nextOffset <= offset || nextOffset >= endIdx) break;
+    offset = nextOffset;
     part++;
   }
 
