@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-last_updated: "2026-03-09T10:35:26.307Z"
+last_updated: "2026-03-10T09:47:38.996Z"
 progress:
-  total_phases: 4
+  total_phases: 5
   completed_phases: 4
-  total_plans: 13
-  completed_plans: 13
+  total_plans: 17
+  completed_plans: 15
 ---
 
 # Project State
@@ -55,6 +55,7 @@ Progress: [█████████░] 77%
 | Phase 04-mcp-query-tools P02 | 2 | 2 tasks | 2 files |
 | Phase 04-mcp-query-tools P03 | 2 | 2 tasks | 4 files |
 | Phase 04-mcp-query-tools P04 | 3 | 3 tasks | 3 files |
+| Phase 07-fix-oom-memory-problem-when-indexing-very-large-repos P07-02 | 6 | 2 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -104,6 +105,13 @@ Recent decisions affecting current work:
 - [04-03]: createMcpServer(deps: QueryDeps) — adapters passed through from app.ts closure, no lifecycle management inside server factory
 - [Phase 04-mcp-query-tools]: Token budget uses 4-chars-per-token heuristic, default 4000 tokens (~16000 chars), caller-overridable via max_tokens
 - [Phase 04-mcp-query-tools]: Related chunks use startLine=0/endLine=0 sentinel when line info unavailable from graph — avoids fabricating line numbers
+- [Phase 07-02]: FalkorDB MERGE pattern for checkpoint upsert -- safe repeated writes without duplicates
+- [Phase 07-02]: MemoryMonitor timer.unref() prevents process/test-runner hang (Pitfall 5)
+- [Phase 07-02]: IndexProgressEmitter uses typed EventEmitter subclass -- zero deps, full type safety at call sites
+
+### Roadmap Evolution
+
+- Phase 7 added: Fix OOM memory problem when indexing very large repos
 
 ### Pending Todos
 

@@ -129,3 +129,13 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | 4. MCP Query Tools | 4/4 | Complete   | 2026-03-09 |
 | 5. Re-indexing & Operations | 0/2 | Not started | - |
 | 6. Web Admin Dashboard | 0/3 | Not started | - |
+
+### Phase 7: Fix OOM memory problem when indexing very large repos
+
+**Goal:** [To be planned]
+**Requirements**: TBD
+**Depends on:** Phase 6
+**Plans:** 2/4 plans executed
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 7 to break down)
