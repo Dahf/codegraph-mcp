@@ -18,16 +18,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-02)
 
 **Core value:** AI development tools get instant, accurate cross-codebase context — so developers never have to manually explain their project structure again.
-**Current focus:** Phase 7 In Progress - Plan 07-01 complete (config schema + walker async generator + p-queue install)
+**Current focus:** Phase 7 In Progress - Plan 07-03 complete (graph-writer per-file functions, embedder queue adaptation)
 
 ## Current Position
 
 Phase: 7 of 7 (Fix OOM Memory Problem) -- In Progress
-Plan: 1 of 4 in current phase (1 complete, 3 remaining)
+Plan: 3 of 4 in current phase (3 complete, 1 remaining)
 Status: Phase 7 In Progress
-Last activity: 2026-03-10 — Plan 07-01 complete (config schema indexer fields, walkRepo async generator, file-size filtering, p-queue install)
+Last activity: 2026-03-10 — Plan 07-03 complete (graph-writer per-file functions: clearGraph, createGraphIndexes, writeFileSymbols, writeCallEdges; embedder queue functions: embedSingleChunk, storeEmbeddingRows)
 
-Progress: [█████████░] 88%
+Progress: [█████████░] 92%
 
 ## Performance Metrics
 
@@ -57,6 +57,7 @@ Progress: [█████████░] 88%
 | Phase 04-mcp-query-tools P04 | 3 | 3 tasks | 3 files |
 | Phase 07-fix-oom-memory-problem-when-indexing-very-large-repos P07-02 | 6 | 2 tasks | 6 files |
 | Phase 07 P01 | 8 | 2 tasks | 8 files |
+| Phase 07-fix-oom-memory-problem-when-indexing-very-large-repos P07-03 | 5 | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -111,6 +112,8 @@ Recent decisions affecting current work:
 - [Phase 07-02]: IndexProgressEmitter uses typed EventEmitter subclass -- zero deps, full type safety at call sites
 - [Phase 07]: Zod v4 requires explicit full default object for nested objects -- .default({}) stores literal empty object, not schema-computed defaults
 - [Phase 07]: walkRepo uses opendir() for pull-based directory iteration instead of readdir() -- avoids loading full directory listing into memory
+- [Phase 07-03]: New graph functions accept Graph directly (not FalkorDBAdapter) — cleaner call site in streaming pipeline
+- [Phase 07-03]: embedSingleChunk returns null on error (never throws) — required for safe p-queue task semantics
 
 ### Roadmap Evolution
 
@@ -129,5 +132,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-10
-Stopped at: Completed 07-fix-oom-memory-problem-when-indexing-very-large-repos/07-01-PLAN.md (config schema indexer fields, walkRepo async generator with file-size filtering, p-queue install)
+Stopped at: Completed 07-fix-oom-memory-problem-when-indexing-very-large-repos/07-03-PLAN.md (graph-writer per-file functions, embedder queue adaptation)
 Resume file: None
