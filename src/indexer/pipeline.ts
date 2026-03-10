@@ -15,7 +15,7 @@ import { walkRepo, readSourceFile } from './walker.js';
 import { LANGUAGE_REGISTRY, PARSERS } from './parsers/registry.js';
 import { writeFileSymbols, writeCallEdges, clearGraph, createGraphIndexes } from './graph-writer.js';
 import { extractChunks } from './chunker.js';
-import { embedSingleChunk, storeEmbeddingRows } from './embedder.js';
+import { embedSingleChunk } from './embedder.js';
 import { readCheckpoint, writeCheckpoint, clearCheckpoint } from './checkpoint.js';
 import { MemoryMonitor } from './memory-monitor.js';
 import type { IndexProgressEmitter } from './progress.js';
@@ -81,6 +81,12 @@ function extractCallSiteNames(node: Parser.SyntaxNode): string[] {
  *
  * One pipeline instance per index request. Cloned repo is always removed in finally.
  */
+/** Flush embedding rows to LanceDB every N accumulated rows to bound memory. */
+const EMBEDDING_FLUSH_SIZE = 200;
+
+/** Write checkpoint every N files instead of every file (reduces JSON serialization pressure). */
+const CHECKPOINT_INTERVAL = 50;
+
 export class IndexPipeline {
   constructor(
     private readonly falkorAdapter: FalkorDBAdapter,
@@ -124,6 +130,27 @@ export class IndexPipeline {
       const embeddingQueue = new PQueue({ concurrency: this.config.indexer.embeddingConcurrency });
       const rows: Record<string, unknown>[] = [];
       const processedFiles = new Set<string>(existingCheckpoint);
+      let filesSinceCheckpoint = 0;
+
+      // Delete old embeddings once at start (fresh run only) so incremental flushes can just append
+      if (!resume) {
+        const tableNames = await this.lanceAdapter.getConnection().tableNames();
+        if (tableNames.includes('embeddings')) {
+          await this.lanceAdapter.deleteRows('embeddings', `repoId = '${repo.id}'`);
+        }
+      }
+
+      /** Flush accumulated embedding rows to LanceDB and clear the buffer. */
+      const flushEmbeddingRows = async () => {
+        if (rows.length === 0) return;
+        const tableNames = await this.lanceAdapter.getConnection().tableNames();
+        if (tableNames.includes('embeddings')) {
+          await this.lanceAdapter.addRows('embeddings', rows);
+        } else {
+          await this.lanceAdapter.createOrOverwriteTable('embeddings', rows);
+        }
+        rows.length = 0;
+      };
 
       // Stage 3 — Pass 1: Stream files, parse, write symbols, queue embeddings
       for await (const file of walkRepo(destPath, { maxFileSizeBytes: this.config.indexer.maxFileSizeBytes })) {
@@ -198,23 +225,33 @@ export class IndexPipeline {
             symbols.functions.length + symbols.classes.length +
             symbols.types.length + symbols.imports.length;
 
-          // Null out source text reference — allow GC to reclaim memory
+          // Null out source text and tree references — allow GC to reclaim memory
           source = null;
 
           result.filesProcessed++;
           processedFiles.add(file.relativePath);
+          filesSinceCheckpoint++;
 
-          // Persist checkpoint after each file
-          await writeCheckpoint(graph, repo.id, processedFiles);
+          // Persist checkpoint periodically (not every file — reduces JSON serialization pressure)
+          if (filesSinceCheckpoint >= CHECKPOINT_INTERVAL) {
+            await writeCheckpoint(graph, repo.id, processedFiles);
+            filesSinceCheckpoint = 0;
+            this.progressEmitter?.emit('checkpoint:saved', {
+              repoId: repo.id,
+              filesProcessed: result.filesProcessed,
+            });
+          }
+
+          // Flush embedding rows periodically to bound memory
+          if (rows.length >= EMBEDDING_FLUSH_SIZE) {
+            await embeddingQueue.onIdle(); // drain queue before flushing
+            await flushEmbeddingRows();
+          }
 
           this.progressEmitter?.emit('file:parsed', {
             repoId: repo.id,
             filePath: file.relativePath,
             symbolsFound: symbols.functions.length + symbols.classes.length + symbols.types.length,
-          });
-          this.progressEmitter?.emit('checkpoint:saved', {
-            repoId: repo.id,
-            filesProcessed: result.filesProcessed,
           });
         } catch (err) {
           const msg = err instanceof Error ? err.message : String(err);
@@ -230,12 +267,16 @@ export class IndexPipeline {
         symbolsExtracted: result.symbolsExtracted,
       });
 
-      // Stage 4 — Drain embedding queue
+      // Final checkpoint write (covers files since last periodic checkpoint)
+      if (filesSinceCheckpoint > 0) {
+        await writeCheckpoint(graph, repo.id, processedFiles);
+      }
+
+      // Stage 4 — Drain embedding queue and flush remaining rows
       await embeddingQueue.onIdle();
-      await storeEmbeddingRows(rows, repo.id, this.lanceAdapter);
       result.embeddingsStored = rows.length;
       result.embeddingsFailed = 0;
-      rows.length = 0;
+      await flushEmbeddingRows();
 
       // Stage 5 — Pass 2: Stream files again, extract call sites, resolve via FalkorDB, write CALLS edges
       for await (const file of walkRepo(destPath, { maxFileSizeBytes: this.config.indexer.maxFileSizeBytes })) {

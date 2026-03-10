@@ -31,7 +31,6 @@ vi.mock('../graph-writer.js', () => ({
 // Embedder mocks
 vi.mock('../embedder.js', () => ({
   embedSingleChunk: vi.fn().mockImplementation(async () => ({ vector: [0.1], repoId: 'test-repo' })),
-  storeEmbeddingRows: vi.fn().mockImplementation(async () => undefined),
 }));
 
 // Checkpoint mocks
@@ -138,7 +137,7 @@ vi.mock('../parsers/registry.js', () => ({
 import { IndexPipeline } from '../pipeline.js';
 import * as walker from '../walker.js';
 import * as graphWriter from '../graph-writer.js';
-import * as embedder from '../embedder.js';
+import { embedSingleChunk } from '../embedder.js';
 import * as checkpoint from '../checkpoint.js';
 import { extractChunks } from '../chunker.js';
 import { rm } from 'node:fs/promises';
@@ -186,7 +185,14 @@ function makeMockAdapters() {
       selectGraph: vi.fn().mockReturnValue(mockGraph),
     } as unknown as import('../../adapters/falkordb.js').FalkorDBAdapter,
     ollamaAdapter: {} as unknown as import('../../adapters/ollama.js').OllamaAdapter,
-    lanceAdapter: {} as unknown as import('../../adapters/lancedb.js').LanceDBAdapter,
+    lanceAdapter: {
+      getConnection: vi.fn().mockReturnValue({
+        tableNames: vi.fn().mockResolvedValue([]),
+      }),
+      deleteRows: vi.fn().mockResolvedValue(undefined),
+      addRows: vi.fn().mockResolvedValue(undefined),
+      createOrOverwriteTable: vi.fn().mockResolvedValue(undefined),
+    } as unknown as import('../../adapters/lancedb.js').LanceDBAdapter,
     mockGraph,
   };
 }
@@ -203,8 +209,7 @@ describe('IndexPipeline', () => {
     vi.mocked(graphWriter.writeCallEdges).mockImplementation(async () => 0);
     vi.mocked(graphWriter.clearGraph).mockImplementation(async () => undefined);
     vi.mocked(graphWriter.createGraphIndexes).mockImplementation(async () => undefined);
-    vi.mocked(embedder.embedSingleChunk).mockImplementation(async () => ({ vector: [0.1], repoId: 'test-repo' }));
-    vi.mocked(embedder.storeEmbeddingRows).mockImplementation(async () => undefined);
+    vi.mocked(embedSingleChunk).mockImplementation(async () => ({ vector: [0.1], repoId: 'test-repo' }));
     vi.mocked(checkpoint.readCheckpoint).mockImplementation(async () => new Set());
     vi.mocked(checkpoint.writeCheckpoint).mockImplementation(async () => undefined);
     vi.mocked(checkpoint.clearCheckpoint).mockImplementation(async () => undefined);
@@ -343,36 +348,31 @@ describe('IndexPipeline', () => {
     expect(clearCheckpointCalls).toBe(1);
   });
 
-  // ── Test 4: storeEmbeddingRows called after onIdle ────────────────────────
+  // ── Test 4: embedding rows flushed after onIdle drain ────────────────────
 
-  it('awaits embeddingQueue.onIdle before calling storeEmbeddingRows', async () => {
+  it('awaits embeddingQueue.onIdle before flushing remaining embedding rows', async () => {
     const { falkorAdapter, ollamaAdapter, lanceAdapter } = makeMockAdapters();
 
     const aFile = { absolutePath: '/tmp/data/repos/test-repo/a.ts', relativePath: 'a.ts', language: 'typescript' };
     vi.mocked(walker.walkRepo).mockReturnValue(makeFileGen([aFile]) as ReturnType<typeof walker.walkRepo>);
     vi.mocked(walker.readSourceFile).mockResolvedValue('function testFn() {}');
 
-    const storeCallLog: string[] = [];
-
-    vi.mocked(embedder.storeEmbeddingRows).mockImplementation(async () => {
-      storeCallLog.push('storeEmbeddingRows');
-    });
-
     const pipeline = new IndexPipeline(falkorAdapter, ollamaAdapter, lanceAdapter, CONFIG);
     await pipeline.run(REPO);
 
-    // onIdle is logged to pQueueCallLog, storeEmbeddingRows to storeCallLog
-    // We verify via the shared pQueueCallLog that onIdle was called
+    // onIdle must be called (embedding queue drained before flush)
     expect(pQueueCallLog).toContain('onIdle');
-    // And storeEmbeddingRows was actually called
-    expect(storeCallLog).toContain('storeEmbeddingRows');
-    // The code structure guarantees ordering: onIdle is awaited, then storeEmbeddingRows runs
-    // Since both are sequential (await onIdle() then await storeEmbeddingRows()), onIdle appearing
-    // in the log before storeEmbeddingRows is the expected behavior.
     const onIdleIdx = pQueueCallLog.indexOf('onIdle');
-    // onIdle must have been called (implies it was awaited before store)
     expect(onIdleIdx).toBeGreaterThanOrEqual(0);
-    expect(vi.mocked(embedder.storeEmbeddingRows)).toHaveBeenCalledTimes(1);
+
+    // Embedding rows are flushed via lanceAdapter (createOrOverwriteTable or addRows)
+    const lance = lanceAdapter as unknown as {
+      getConnection: ReturnType<typeof vi.fn>;
+      addRows: ReturnType<typeof vi.fn>;
+      createOrOverwriteTable: ReturnType<typeof vi.fn>;
+    };
+    const totalFlushCalls = lance.addRows.mock.calls.length + lance.createOrOverwriteTable.mock.calls.length;
+    expect(totalFlushCalls).toBeGreaterThanOrEqual(1);
   });
 
   // ── Test 5: onSizeLessThan called before enqueuing chunks ────────────────

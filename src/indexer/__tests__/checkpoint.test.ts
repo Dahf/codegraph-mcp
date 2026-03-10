@@ -35,7 +35,7 @@ describe('readCheckpoint', () => {
   it('returns the stored file set when checkpoint exists', async () => {
     const files = ['src/a.ts', 'src/b.ts', 'src/c.ts'];
     const graph = makeMockGraph({
-      'MATCH': [{ 'c.processedFiles': JSON.stringify(files) }],
+      'MATCH': [{ 'c.processedFiles': JSON.stringify(files) } as unknown as unknown[]],
     });
     const result = await readCheckpoint(graph, 'repo-1');
     expect(result).toBeInstanceOf(Set);
