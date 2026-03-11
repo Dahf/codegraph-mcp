@@ -35,6 +35,28 @@ export async function clearGraph(graph: Graph, _repoId?: string): Promise<void> 
 }
 
 /**
+ * Delete all symbol nodes and the File node for a specific file path in the repo graph.
+ *
+ * Uses two separate queries due to a schema inconsistency (Pitfall 1):
+ * - Symbol nodes (Function, Class, Type, Import) use the `filePath` property
+ * - File nodes use the `path` property
+ *
+ * Called during incremental re-indexing before re-parsing a changed or deleted file.
+ */
+export async function clearFileNodes(graph: Graph, repoId: string, filePath: string): Promise<void> {
+  // Delete symbol nodes — they use `filePath` property
+  await graph.query(
+    'MATCH (n {filePath: $filePath, repoId: $repoId}) DETACH DELETE n',
+    { params: { filePath, repoId } },
+  );
+  // Delete the File node — it uses `path` property (schema inconsistency)
+  await graph.query(
+    'MATCH (f:File {path: $filePath, repoId: $repoId}) DETACH DELETE f',
+    { params: { filePath, repoId } },
+  );
+}
+
+/**
  * Create standard indexes (idempotent). Call once at start of pipeline run.
  * FalkorDB silently ignores duplicate CREATE INDEX calls.
  */

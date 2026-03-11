@@ -3,12 +3,11 @@ import { rm, mkdir } from 'node:fs/promises';
 import path from 'node:path';
 
 /**
- * Clone a git repository to dataDir/repos/repoId using --depth 1 (shallow).
+ * Clone a git repository to dataDir/repos/repoId (full clone, no --depth 1).
  * Removes any stale clone at the destination before cloning.
  * Returns the absolute path to the cloned directory.
  *
- * NOTE for Phase 5: Remove --depth 1 when implementing incremental indexing
- * (PARS-10) — full history is needed for git diff-based change detection.
+ * Full clone is required for git diff-based incremental indexing (PARS-10).
  */
 export async function cloneRepo(
   url: string,
@@ -26,8 +25,16 @@ export async function cloneRepo(
   await git.clone(url, destPath, [
     '--branch', branch,
     '--single-branch',
-    '--depth', '1',
   ]);
 
   return destPath;
+}
+
+/**
+ * Pull the latest changes in an existing clone directory.
+ * Used for incremental re-indexing to update the clone without a full re-clone.
+ */
+export async function pullRepo(destPath: string): Promise<void> {
+  const git = simpleGit(destPath);
+  await git.pull();
 }

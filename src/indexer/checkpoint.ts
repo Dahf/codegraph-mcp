@@ -43,13 +43,39 @@ export async function writeCheckpoint(
 }
 
 /**
- * Deletes the checkpoint node for a given repo from FalkorDB.
- * Called at the start of a fresh (non-resume) index run to ensure
- * stale checkpoint data does not cause files to be skipped.
+ * Clears the processedFiles checkpoint for a given repo in FalkorDB.
+ * Uses SET c.processedFiles = null instead of DELETE so the Checkpoint node
+ * and its lastCommit property are preserved across full re-index runs.
  */
 export async function clearCheckpoint(graph: Graph, repoId: string): Promise<void> {
   await graph.query(
-    'MATCH (c:Checkpoint {repoId: $repoId}) DELETE c',
+    'MATCH (c:Checkpoint {repoId: $repoId}) SET c.processedFiles = null',
     { params: { repoId } },
+  );
+}
+
+/**
+ * Reads the last indexed commit SHA for a given repo from FalkorDB.
+ * Returns null if no Checkpoint node exists or lastCommit is not set.
+ */
+export async function readLastCommit(graph: Graph, repoId: string): Promise<string | null> {
+  const result = await graph.query(
+    'MATCH (c:Checkpoint {repoId: $repoId}) RETURN c.lastCommit',
+    { params: { repoId } },
+  );
+  if (!result.data || result.data.length === 0) return null;
+  return (result.data[0] as Record<string, unknown>)?.['c.lastCommit'] as string ?? null;
+}
+
+/**
+ * Writes (upserts) the last indexed commit SHA for a given repo to FalkorDB.
+ * Uses MERGE so calling this multiple times is safe — no duplicate nodes.
+ * Bootstraps the Checkpoint node on first full index run.
+ */
+export async function writeLastCommit(graph: Graph, repoId: string, sha: string): Promise<void> {
+  await graph.query(
+    `MERGE (c:Checkpoint {repoId: $repoId})
+     SET c.lastCommit = $sha, c.updatedAt = $ts`,
+    { params: { repoId, sha, ts: Date.now() } },
   );
 }

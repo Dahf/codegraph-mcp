@@ -94,11 +94,11 @@ Plans:
   1. Making a commit to a registered repository triggers re-indexing automatically (via git hook)
   2. Re-indexing only processes files that changed since the last indexed commit, not the entire repository
   3. Re-indexing completes and the updated symbols are queryable without restarting the server
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 05-01: Incremental indexing engine — file change detection, delta extraction, upsert into graph and vector stores
-- [ ] 05-02: Git hook installer and post-commit webhook handler
+- [ ] 05-01-PLAN.md — Incremental indexing engine: cloner (full clone + pullRepo), checkpoint lastCommit, clearFileNodes, incremental pipeline mode
+- [ ] 05-02-PLAN.md — Git hook automation: post-commit hook installer, route handler with ?incremental=true, debounce, per-repo lock
 
 ### Phase 6: Web Admin Dashboard
 **Goal**: A web dashboard lets users see repository status, monitor indexing, trigger manual re-indexes, and view server health — all without touching the CLI

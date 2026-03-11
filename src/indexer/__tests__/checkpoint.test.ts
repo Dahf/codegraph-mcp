@@ -119,13 +119,16 @@ describe('writeCheckpoint', () => {
 });
 
 describe('clearCheckpoint', () => {
-  it('uses DELETE query to remove the checkpoint node', async () => {
+  it('uses SET to null processedFiles (preserves lastCommit — no DELETE)', async () => {
     const graph = makeMockGraph();
     await clearCheckpoint(graph, 'repo-1');
 
     expect(graph.query).toHaveBeenCalledOnce();
     const call = (graph.query as ReturnType<typeof vi.fn>).mock.calls[0];
-    expect(call[0]).toMatch(/DELETE/i);
+    // Phase 5: clearCheckpoint now uses SET c.processedFiles = null instead of
+    // DELETE to preserve the lastCommit SHA across full re-index runs.
+    expect(call[0]).toMatch(/SET/i);
+    expect(call[0]).not.toMatch(/\bDELETE\b/);
   });
 
   it('passes repoId as a query parameter', async () => {
@@ -137,15 +140,20 @@ describe('clearCheckpoint', () => {
   });
 
   it('after clear, readCheckpoint returns empty Set', async () => {
+    // Phase 5: clearCheckpoint sets processedFiles to null (not DELETE).
+    // Simulate: after SET c.processedFiles = null, the MATCH returns the node
+    // but with c.processedFiles = null, so readCheckpoint returns an empty Set.
     let stored: string | null = JSON.stringify(['src/a.ts']);
 
     const graph = {
       query: vi.fn(async (query: string, options?: { params?: Record<string, unknown> }) => {
-        if (query.includes('DELETE')) {
+        if (query.includes('SET') && query.includes('processedFiles')) {
+          // Simulate nulling out processedFiles
           stored = null;
           return { data: [] };
         }
-        if (stored) {
+        if (query.includes('MATCH') && query.includes('processedFiles')) {
+          // Return the node but with null processedFiles
           return { data: [{ 'c.processedFiles': stored }] };
         }
         return { data: [] };

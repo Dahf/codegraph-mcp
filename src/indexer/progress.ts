@@ -17,6 +17,8 @@ export interface IndexProgressEvents {
   'memory:paused': [{ repoId: string; heapRatio: number }];
   /** Heap dropped below low-water mark — processing resumed. */
   'memory:resumed': [{ repoId: string }];
+  /** Incremental run started — reports number of changed and deleted files to process. */
+  'incremental:started': [{ repoId: string; changedFiles: number; deletedFiles: number }];
   /** Checkpoint was written to FalkorDB — captures processed file count. */
   'checkpoint:saved': [{ repoId: string; filesProcessed: number }];
   /** Pass 1 (symbol extraction) completed. */
