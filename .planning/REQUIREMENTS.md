@@ -18,7 +18,7 @@ Requirements for initial release. Each maps to roadmap phases.
 - [x] **PARS-07**: System chunks code at function/class boundaries for embedding
 - [x] **PARS-08**: System generates embeddings locally via Ollama (CodeRankEmbed)
 - [x] **PARS-09**: System extracts call-graph relationships (function-to-function calls)
-- [ ] **PARS-10**: System re-indexes only changed files on subsequent runs (incremental)
+- [x] **PARS-10**: System re-indexes only changed files on subsequent runs (incremental)
 
 ### Storage
 
@@ -92,7 +92,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | PARS-07 | Phase 3 | Complete |
 | PARS-08 | Phase 3 | Complete |
 | PARS-09 | Phase 2 | Complete |
-| PARS-10 | Phase 5 | Pending |
+| PARS-10 | Phase 5 | Complete |
 | STOR-01 | Phase 2 | Complete |
 | STOR-02 | Phase 3 | Complete |
 | STOR-03 | Phase 2 | Complete |

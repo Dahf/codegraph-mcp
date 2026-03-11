@@ -2,13 +2,13 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: complete
-last_updated: "2026-03-10T11:13:00.000Z"
+status: in_progress
+last_updated: "2026-03-11T09:00:00.000Z"
 progress:
-  total_phases: 5
-  completed_phases: 5
-  total_plans: 17
-  completed_plans: 17
+  total_phases: 8
+  completed_phases: 7
+  total_plans: 19
+  completed_plans: 18
 ---
 
 # Project State
@@ -18,16 +18,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-02)
 
 **Core value:** AI development tools get instant, accurate cross-codebase context — so developers never have to manually explain their project structure again.
-**Current focus:** Phase 7 Complete - all plans done (streaming pipeline refactor, OOM fixes complete)
+**Current focus:** Phase 5 Re-indexing Operations — Plan 1 complete (incremental indexing engine)
 
 ## Current Position
 
-Phase: 7 of 7 (Fix OOM Memory Problem) -- Complete
-Plan: 4 of 4 in current phase (all complete)
-Status: All Phases Complete
-Last activity: 2026-03-10 — Plan 07-04 complete (streaming two-pass pipeline, p-queue backpressure, checkpoint resume, deprecated bulk functions removed)
+Phase: 5 of 8 (Re-indexing Operations) -- In Progress
+Plan: 1 of 2 in current phase (plan 1 complete)
+Status: In Progress
+Last activity: 2026-03-11 — Plan 05-01 complete (incremental indexing engine: pullRepo, readLastCommit/writeLastCommit, clearFileNodes, parseDiffNameStatus, IndexPipeline incremental mode)
 
-Progress: [██████████] 100%
+Progress: [█████████░] 90%
 
 ## Performance Metrics
 
@@ -118,6 +118,10 @@ Recent decisions affecting current work:
 - [Phase 07-04]: Pass 2 call-site resolution uses single UNWIND query per file (one FalkorDB round-trip per file, not per call site)
 - [Phase 07-04]: Source text nulled after extractChunks — GC can reclaim before next file is loaded
 - [Phase 07-04]: IndexProgressEmitter is optional constructor param — fresh emitter per request prevents cross-request event leakage
+- [05-01]: clearCheckpoint uses SET c.processedFiles = null instead of DELETE — preserves lastCommit SHA across full re-index cleanup so incremental baseline survives
+- [05-01]: parseDiffNameStatus exported from pipeline.ts for testability (pure function, no deps)
+- [05-01]: Two-file test split (incremental.test.ts + incremental-pipeline.test.ts) required — Vitest hoists vi.mock() calls so mixing real imports and module mocks in one file replaces real implementations
+- [05-01]: Clone directory preserved after both full and incremental runs — required for future incremental git pull without re-cloning
 
 ### Roadmap Evolution
 
@@ -135,6 +139,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-10
-Stopped at: Completed 07-fix-oom-memory-problem-when-indexing-very-large-repos/07-04-PLAN.md (streaming two-pass pipeline, p-queue backpressure, checkpoint resume, deprecated bulk functions removed)
+Last session: 2026-03-11
+Stopped at: Completed 05-reindexing-operations/05-01-PLAN.md (incremental indexing engine: pullRepo, readLastCommit/writeLastCommit, clearFileNodes, parseDiffNameStatus, IndexPipeline incremental mode)
 Resume file: None
