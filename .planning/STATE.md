@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: in_progress
-last_updated: "2026-03-11T09:00:00.000Z"
+last_updated: "2026-03-11T09:15:00.000Z"
 progress:
   total_phases: 8
-  completed_phases: 7
+  completed_phases: 5
   total_plans: 19
-  completed_plans: 18
+  completed_plans: 19
 ---
 
 # Project State
@@ -18,16 +18,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-02)
 
 **Core value:** AI development tools get instant, accurate cross-codebase context — so developers never have to manually explain their project structure again.
-**Current focus:** Phase 5 Re-indexing Operations — Plan 1 complete (incremental indexing engine)
+**Current focus:** Phase 5 Re-indexing Operations — COMPLETE (both plans done)
 
 ## Current Position
 
-Phase: 5 of 8 (Re-indexing Operations) -- In Progress
-Plan: 1 of 2 in current phase (plan 1 complete)
-Status: In Progress
-Last activity: 2026-03-11 — Plan 05-01 complete (incremental indexing engine: pullRepo, readLastCommit/writeLastCommit, clearFileNodes, parseDiffNameStatus, IndexPipeline incremental mode)
+Phase: 5 of 8 (Re-indexing Operations) -- Complete
+Plan: 2 of 2 in current phase (both plans complete)
+Status: In Progress (proceeding to Phase 6)
+Last activity: 2026-03-11 — Plan 05-02 complete (git hook installer, incremental route with debounce+lock, supertest, OPS-02 satisfied)
 
-Progress: [█████████░] 90%
+Progress: [█████████░] 95%
 
 ## Performance Metrics
 
@@ -59,6 +59,7 @@ Progress: [█████████░] 90%
 | Phase 07 P01 | 8 | 2 tasks | 8 files |
 | Phase 07-fix-oom-memory-problem-when-indexing-very-large-repos P07-03 | 5 | 2 tasks | 4 files |
 | Phase 07 P04 | 12 | 3 tasks | 6 files |
+| Phase 05-reindexing-operations P02 | 20 | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -122,6 +123,9 @@ Recent decisions affecting current work:
 - [05-01]: parseDiffNameStatus exported from pipeline.ts for testability (pure function, no deps)
 - [05-01]: Two-file test split (incremental.test.ts + incremental-pipeline.test.ts) required — Vitest hoists vi.mock() calls so mixing real imports and module mocks in one file replaces real implementations
 - [05-01]: Clone directory preserved after both full and incremental runs — required for future incremental git pull without re-cloning
+- [Phase 05-reindexing-operations]: DEBOUNCE_MS=5000 in route closure: debounce timers and inProgress lock live in indexRoutes factory closure so each router instance has independent state
+- [Phase 05-reindexing-operations]: vi.mock factory with __state pattern: hoisted factories can't reference outer vars — shared mock state attached to exported constructor
+- [Phase 05-reindexing-operations]: [05-02]: Hook install failure is non-fatal (try/catch+warn) — never affects index result
 
 ### Roadmap Evolution
 
@@ -140,5 +144,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-11
-Stopped at: Completed 05-reindexing-operations/05-01-PLAN.md (incremental indexing engine: pullRepo, readLastCommit/writeLastCommit, clearFileNodes, parseDiffNameStatus, IndexPipeline incremental mode)
+Stopped at: Completed 05-reindexing-operations/05-02-PLAN.md (git hook installer, incremental route with debounce+lock, OPS-02 satisfied — Phase 5 complete)
 Resume file: None

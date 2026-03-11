@@ -16,7 +16,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [ ] **Phase 2: Parsing & Graph Storage** - TreeSitter 5-language parsing, symbol extraction, call-graph, FalkorDB
 - [ ] **Phase 3: Embedding & Vector Storage** - Semantic chunking, Ollama embeddings, LanceDB storage
 - [x] **Phase 4: MCP Query Tools** - Semantic Search, Symbol Lookup, and Context Bundle tools (completed 2026-03-09)
-- [ ] **Phase 5: Re-indexing & Operations** - Incremental indexing, git-hook automation
+- [x] **Phase 5: Re-indexing & Operations** - Incremental indexing, git-hook automation (completed 2026-03-11)
 - [ ] **Phase 6: Web Admin Dashboard** - Repository status UI, manual re-index, health stats
 
 ## Phase Details
@@ -127,7 +127,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | 2. Parsing & Graph Storage | 4/4 | Complete |  |
 | 3. Embedding & Vector Storage | 0/2 | Not started | - |
 | 4. MCP Query Tools | 4/4 | Complete   | 2026-03-09 |
-| 5. Re-indexing & Operations | 1/2 | In Progress|  |
+| 5. Re-indexing & Operations | 2/2 | Complete   | 2026-03-11 |
 | 6. Web Admin Dashboard | 0/3 | Not started | - |
 
 ### Phase 7: Fix OOM memory problem when indexing very large repos
@@ -135,7 +135,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 **Goal:** [To be planned]
 **Requirements**: TBD
 **Depends on:** Phase 6
-**Plans:** 1/2 plans executed
+**Plans:** 2/2 plans complete
 
 Plans:
 - [x] TBD (run /gsd:plan-phase 7 to break down) (completed 2026-03-10)

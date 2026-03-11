@@ -36,7 +36,7 @@ Requirements for initial release. Each maps to roadmap phases.
 ### Operations
 
 - [x] **OPS-01**: User can add, remove, and list repositories via configuration or API
-- [ ] **OPS-02**: Git-hook triggered re-indexing runs automatically on commits
+- [x] **OPS-02**: Git-hook triggered re-indexing runs automatically on commits
 - [x] **OPS-03**: Server exposes health endpoint for monitoring (uptime, indexed repos, total symbols)
 
 ### Web UI (Admin Dashboard)
@@ -101,7 +101,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | MCPS-03 | Phase 4 | Complete |
 | MCPS-04 | Phase 4 | Complete |
 | OPS-01 | Phase 1 | Complete |
-| OPS-02 | Phase 5 | Pending |
+| OPS-02 | Phase 5 | Complete |
 | OPS-03 | Phase 1 | Complete |
 | UI-01 | Phase 6 | Pending |
 | UI-02 | Phase 6 | Pending |
