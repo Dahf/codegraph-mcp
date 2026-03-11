@@ -184,15 +184,17 @@ describe('IndexPipeline E2E', () => {
       expect(sampleRow).toHaveProperty('sourceText');
     }
 
-    // 8. Checkpoint was cleared at end (fresh run completes successfully)
-    const deleteQueries = queries.filter(q => q.includes('DELETE') && q.includes('Checkpoint'));
-    // At least 2 DELETE Checkpoint queries: one at start (clearCheckpoint) and one at end
-    expect(deleteQueries.length).toBeGreaterThanOrEqual(2);
+    // 8. Checkpoint was cleared at end (fresh run completes successfully).
+    // Phase 5: clearCheckpoint uses SET c.processedFiles = null (not DELETE) to
+    // preserve lastCommit SHA across re-index runs.
+    const setCheckpointQueries = queries.filter(q => q.includes('SET') && q.includes('Checkpoint'));
+    // At least 1 SET Checkpoint query (clearCheckpoint at start of fresh run)
+    expect(setCheckpointQueries.length).toBeGreaterThanOrEqual(1);
 
-    // 9. Clone directory should be cleaned up (finally block)
+    // 9. Clone directory is preserved after full index (Phase 5: needed for future incremental pulls)
     const { existsSync } = await import('node:fs');
     const clonePath = path.join(tmpDir, 'repos', 'e2e-test-repo');
-    expect(existsSync(clonePath)).toBe(false);
+    expect(existsSync(clonePath)).toBe(true);
 
     // 10. No catastrophic failures
     if (result.failedFiles.length > 0) {

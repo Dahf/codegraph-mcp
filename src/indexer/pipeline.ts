@@ -1,6 +1,7 @@
 import path from 'node:path';
-import { rm } from 'node:fs/promises';
+import { access } from 'node:fs/promises';
 import PQueue from 'p-queue';
+import { simpleGit } from 'simple-git';
 import type Parser from 'tree-sitter';
 import type { FalkorDBAdapter } from '../adapters/falkordb.js';
 import type { OllamaAdapter } from '../adapters/ollama.js';
@@ -10,16 +11,54 @@ import type {
   RepoConfig,
   IndexResult,
 } from '../types/index.js';
-import { cloneRepo } from './cloner.js';
+import { cloneRepo, pullRepo } from './cloner.js';
 import { walkRepo, readSourceFile } from './walker.js';
 import { LANGUAGE_REGISTRY, PARSERS } from './parsers/registry.js';
-import { writeFileSymbols, writeCallEdges, clearGraph, createGraphIndexes } from './graph-writer.js';
+import { writeFileSymbols, writeCallEdges, clearGraph, createGraphIndexes, clearFileNodes } from './graph-writer.js';
 import { extractChunks } from './chunker.js';
 import { embedSingleChunk } from './embedder.js';
-import { readCheckpoint, writeCheckpoint, clearCheckpoint } from './checkpoint.js';
+import { readCheckpoint, writeCheckpoint, clearCheckpoint, readLastCommit, writeLastCommit } from './checkpoint.js';
 import { MemoryMonitor } from './memory-monitor.js';
 import type { IndexProgressEmitter } from './progress.js';
 import { EMBED_MODEL } from '../constants.js';
+
+/**
+ * Escapes single quotes in a string for safe use in LanceDB SQL WHERE clauses.
+ * Inline copy — avoids circular import from the query layer.
+ */
+function escapeSql(value: string): string {
+  return value.replace(/'/g, "''");
+}
+
+/**
+ * Represents a single changed file entry from `git diff --name-status`.
+ */
+export interface ChangedFile {
+  status: 'A' | 'M' | 'D' | 'R';
+  path: string;
+  oldPath?: string; // only for renames
+}
+
+/**
+ * Parse the output of `git diff --name-status` into a structured list of changed files.
+ * Handles A (added), M (modified), D (deleted), and R* (renamed) status codes.
+ * Other status codes (e.g., C for copy) are silently ignored.
+ */
+export function parseDiffNameStatus(raw: string): ChangedFile[] {
+  const files: ChangedFile[] = [];
+  for (const line of raw.trim().split('\n')) {
+    if (!line) continue;
+    const parts = line.split('\t');
+    const statusCode = parts[0]!;
+    if (statusCode.startsWith('R')) {
+      files.push({ status: 'R', oldPath: parts[1], path: parts[2]! });
+    } else if (statusCode === 'A' || statusCode === 'M' || statusCode === 'D') {
+      files.push({ status: statusCode, path: parts[1]! });
+    }
+    // Ignore other statuses (C for copy, etc.)
+  }
+  return files;
+}
 
 /**
  * Walk all nodes of a tree and collect call_expression callee names.
@@ -96,8 +135,9 @@ export class IndexPipeline {
     private readonly progressEmitter?: IndexProgressEmitter,
   ) {}
 
-  async run(repo: RepoConfig, options?: { resume?: boolean }): Promise<IndexResult> {
+  async run(repo: RepoConfig, options?: { resume?: boolean; incremental?: boolean }): Promise<IndexResult> {
     const resume = options?.resume ?? false;
+    const incremental = options?.incremental ?? false;
     const destPath = path.join(this.config.dataDir, 'repos', repo.id);
     const result: IndexResult = {
       repoId: repo.id,
@@ -106,6 +146,11 @@ export class IndexPipeline {
       edgesCreated: 0,
       failedFiles: [],
     };
+
+    // ── Incremental path ──────────────────────────────────────────────────────
+    if (incremental) {
+      return await this.runIncremental(repo, destPath, result);
+    }
 
     try {
       // Stage 1: Clone
@@ -361,16 +406,284 @@ export class IndexPipeline {
       memoryMonitor.stop();
       await clearCheckpoint(graph, repo.id);
 
+      // Write HEAD SHA so the next incremental run has a baseline
+      try {
+        const git = simpleGit(destPath);
+        const headSha = (await git.revparse('HEAD')).trim();
+        await writeLastCommit(graph, repo.id, headSha);
+      } catch {
+        // Non-fatal — next run will fall back to full index
+      }
+
       this.progressEmitter?.emit('done', {
         repoId: repo.id,
         filesProcessed: result.filesProcessed,
         symbolsExtracted: result.symbolsExtracted,
       });
     } finally {
-      // Always clean up — disk usage grows unbounded otherwise
-      await rm(destPath, { recursive: true, force: true }).catch(() => {});
+      // NOTE: destPath is intentionally preserved (no rm) so future incremental
+      // runs can git pull instead of re-cloning.
     }
 
+    return result;
+  }
+
+  /**
+   * Incremental re-index path: pulls existing clone, computes changed files via
+   * `git diff --name-status`, and processes only the delta.
+   *
+   * Falls back to a full index when no lastCommit baseline exists.
+   * Returns early (no work) when HEAD matches lastCommit.
+   */
+  private async runIncremental(
+    repo: RepoConfig,
+    destPath: string,
+    result: IndexResult,
+  ): Promise<IndexResult> {
+    // Check if a prior clone exists — if not, fall back to full index
+    let cloneExists = false;
+    try {
+      await access(destPath);
+      cloneExists = true;
+    } catch {
+      cloneExists = false;
+    }
+
+    const graph = this.falkorAdapter.selectGraph('codegraph-' + repo.id);
+    const lastCommit = await readLastCommit(graph, repo.id);
+
+    if (!lastCommit || !cloneExists) {
+      console.warn(`[pipeline] incremental: no lastCommit baseline for ${repo.id}, falling back to full index`);
+      return this.run(repo, { resume: false });
+    }
+
+    // Update existing clone
+    await pullRepo(destPath);
+
+    const git = simpleGit(destPath);
+    const headSha = (await git.revparse('HEAD')).trim();
+
+    // No changes since last index
+    if (lastCommit === headSha) {
+      return result;
+    }
+
+    // Compute changed files
+    const raw = await git.raw(['diff', '--name-status', lastCommit, 'HEAD']);
+    const changedFiles = parseDiffNameStatus(raw).filter((f) => {
+      const ext = path.extname(f.path).toLowerCase();
+      const oldExt = f.oldPath ? path.extname(f.oldPath).toLowerCase() : null;
+      return LANGUAGE_REGISTRY[ext] !== undefined || (oldExt !== null && LANGUAGE_REGISTRY[oldExt] !== undefined);
+    });
+
+    const deletedCount = changedFiles.filter((f) => f.status === 'D').length;
+    const modifiedCount = changedFiles.length - deletedCount;
+
+    this.progressEmitter?.emit('incremental:started', {
+      repoId: repo.id,
+      changedFiles: modifiedCount,
+      deletedFiles: deletedCount,
+    });
+
+    await createGraphIndexes(graph);
+
+    // Helper: delete LanceDB rows for a file path (wrapped in try/catch — table may not exist)
+    const deleteLanceRows = async (filePath: string) => {
+      try {
+        const tableNames = await this.lanceAdapter.getConnection().tableNames();
+        if (tableNames.includes('embeddings')) {
+          await this.lanceAdapter.deleteRows(
+            'embeddings',
+            `filePath = '${escapeSql(filePath)}' AND repoId = '${escapeSql(repo.id)}'`,
+          );
+        }
+      } catch {
+        // Non-fatal — table may not yet exist
+      }
+    };
+
+    const embeddingQueue = new PQueue({ concurrency: this.config.indexer.embeddingConcurrency });
+    const rows: Record<string, unknown>[] = [];
+
+    const flushEmbeddingRows = async () => {
+      if (rows.length === 0) return;
+      const tableNames = await this.lanceAdapter.getConnection().tableNames();
+      if (tableNames.includes('embeddings')) {
+        await this.lanceAdapter.addRows('embeddings', rows);
+      } else {
+        await this.lanceAdapter.createOrOverwriteTable('embeddings', rows);
+      }
+      rows.length = 0;
+    };
+
+    // Files to process in Pass 2 (non-deleted changed files)
+    const pass2Files: string[] = [];
+
+    for (const changed of changedFiles) {
+      if (changed.status === 'D') {
+        // Deleted: remove from graph + LanceDB, no parsing
+        await clearFileNodes(graph, repo.id, changed.path);
+        await deleteLanceRows(changed.path);
+        continue;
+      }
+
+      if (changed.status === 'R') {
+        // Renamed: delete old path data, then process new path as added
+        await clearFileNodes(graph, repo.id, changed.oldPath!);
+        await deleteLanceRows(changed.oldPath!);
+        // Fall through to process new path as added
+      }
+
+      // Added or Modified (or renamed new path): clear existing + re-parse
+      await clearFileNodes(graph, repo.id, changed.path);
+      await deleteLanceRows(changed.path);
+
+      const absolutePath = path.join(destPath, changed.path);
+      let source: string | null;
+      try {
+        source = await readSourceFile(absolutePath);
+      } catch {
+        source = null;
+      }
+
+      if (source === null) {
+        result.failedFiles.push({ path: changed.path, error: 'Could not read file' });
+        continue;
+      }
+
+      try {
+        const langConfig = LANGUAGE_REGISTRY[path.extname(absolutePath).toLowerCase()];
+        if (!langConfig) {
+          source = null;
+          continue;
+        }
+
+        const parser = PARSERS[langConfig.language];
+        const tree = parser.parse(source);
+        const symbols = langConfig.extractor(tree, source, changed.path);
+
+        const callSiteNames = extractCallSiteNames(tree.rootNode);
+        symbols.callSites = callSiteNames.map((calleeName) => ({
+          calleeName,
+          callerFilePath: changed.path,
+        }));
+
+        const edgesFromFile = await writeFileSymbols(graph, repo.id, { relativePath: changed.path, absolutePath, language: langConfig.language }, symbols);
+        result.edgesCreated += edgesFromFile;
+
+        const chunks = extractChunks(symbols, source, changed.path, langConfig.language);
+        source = null;
+
+        if (chunks.length > 0) {
+          await embeddingQueue.onSizeLessThan(this.config.indexer.embeddingQueueSize);
+          for (const chunk of chunks) {
+            void embeddingQueue.add(async () => {
+              const row = await embedSingleChunk(chunk, repo.id, this.ollamaAdapter, EMBED_MODEL);
+              if (row) rows.push(row);
+            });
+          }
+        }
+
+        result.symbolsExtracted +=
+          symbols.functions.length + symbols.classes.length +
+          symbols.types.length + symbols.imports.length;
+        result.filesProcessed++;
+        pass2Files.push(changed.path);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        console.error(`[pipeline] incremental parse error: ${changed.path}: ${msg}`);
+        result.failedFiles.push({ path: changed.path, error: msg });
+        source = null;
+      }
+    }
+
+    // Drain embedding queue and flush
+    await embeddingQueue.onIdle();
+    result.embeddingsStored = rows.length;
+    result.embeddingsFailed = 0;
+    await flushEmbeddingRows();
+
+    // Pass 2: resolve call edges for changed files only
+    for (const filePath of pass2Files) {
+      const absolutePath = path.join(destPath, filePath);
+      let source: string | null;
+      try {
+        source = await readSourceFile(absolutePath);
+      } catch {
+        source = null;
+      }
+      if (source === null) continue;
+
+      try {
+        const langConfig = LANGUAGE_REGISTRY[path.extname(absolutePath).toLowerCase()];
+        if (!langConfig) { source = null; continue; }
+
+        const parser = PARSERS[langConfig.language];
+        const tree = parser.parse(source);
+        const callSiteNames = extractCallSiteNames(tree.rootNode);
+        source = null;
+
+        if (callSiteNames.length === 0) continue;
+
+        const uniqueNames = [...new Set(callSiteNames)];
+        const queryResult = await graph.query(
+          `UNWIND $names AS calleeName
+           OPTIONAL MATCH (sf:Function {name: calleeName, filePath: $callerFilePath, repoId: $repoId})
+           OPTIONAL MATCH (bf:Function {name: calleeName, repoId: $repoId})
+           RETURN calleeName,
+                  sf.name AS sameFileName, sf.filePath AS sameFilePath,
+                  bf.name AS bareName, bf.filePath AS bareFilePath`,
+          { params: { names: uniqueNames, callerFilePath: filePath, repoId: repo.id } },
+        );
+
+        if (!queryResult.data || queryResult.data.length === 0) continue;
+
+        const callerResult = await graph.query(
+          'MATCH (f:Function {filePath: $callerFilePath, repoId: $repoId}) RETURN f.name LIMIT 1',
+          { params: { callerFilePath: filePath, repoId: repo.id } },
+        );
+
+        const callerRow = callerResult.data?.[0] as Record<string, unknown> | undefined;
+        const callerName = callerRow?.['f.name'] as string | undefined;
+        if (!callerName) continue;
+
+        const fileCallEdges = [];
+        for (const row of queryResult.data as Record<string, unknown>[]) {
+          const sameFilePath = row['sameFilePath'] as string | undefined;
+          const bareFilePath = row['bareFilePath'] as string | undefined;
+          const calleeName = row['sameFileName'] ?? row['bareName'];
+          const calleeFilePath = sameFilePath ?? bareFilePath;
+          if (!calleeName || !calleeFilePath) continue;
+          fileCallEdges.push({
+            callerName,
+            callerFilePath: filePath,
+            calleeName: calleeName as string,
+            calleeFilePath: calleeFilePath as string,
+            crossFile: calleeFilePath !== filePath,
+          });
+        }
+
+        if (fileCallEdges.length > 0) {
+          const written = await writeCallEdges(graph, repo.id, fileCallEdges);
+          result.edgesCreated += written;
+        }
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        console.error(`[pipeline] incremental Pass 2 error: ${filePath}: ${msg}`);
+        source = null;
+      }
+    }
+
+    // Write updated HEAD SHA as the new baseline
+    await writeLastCommit(graph, repo.id, headSha);
+
+    this.progressEmitter?.emit('done', {
+      repoId: repo.id,
+      filesProcessed: result.filesProcessed,
+      symbolsExtracted: result.symbolsExtracted,
+    });
+
+    // destPath preserved — no rm (next incremental needs the clone)
     return result;
   }
 }
